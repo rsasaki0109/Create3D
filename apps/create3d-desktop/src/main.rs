@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
+use c3d_ai_copilot::{CopilotEngine, CopilotProposal, CopilotResponse};
 use c3d_asset_material::{MaterialAssetData, MaterialGraphData};
 use c3d_core::logging::{init_logging, LoggingConfig};
 use c3d_core::math::{Vec2, Vec3};
@@ -68,6 +69,23 @@ struct DesktopApp {
     viewport_extent: Extent2D,
     last_frame: Instant,
     frame_ms: f32,
+    copilot_engine: CopilotEngine,
+    copilot_input: String,
+    copilot_messages: Vec<CopilotMessage>,
+    copilot_pending: Option<CopilotProposal>,
+    copilot_preview_manager: Option<TransactionManager>,
+}
+
+#[derive(Debug, Clone)]
+struct CopilotMessage {
+    role: CopilotRole,
+    text: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CopilotRole {
+    User,
+    Assistant,
 }
 
 #[derive(Debug, Default)]
@@ -135,6 +153,11 @@ impl Default for DesktopApp {
             },
             last_frame: Instant::now(),
             frame_ms: 0.0,
+            copilot_engine: CopilotEngine::mock(),
+            copilot_input: String::new(),
+            copilot_messages: Vec::new(),
+            copilot_pending: None,
+            copilot_preview_manager: None,
         }
     }
 }
@@ -285,12 +308,20 @@ impl ApplicationHandler for DesktopApp {
 
 impl DesktopApp {
     fn sync_runtime(&mut self) {
-        if let Some(manager) = self.scene_manager.as_ref() {
-            project_scene_to_ecs(manager.scene(), &mut self.runtime);
+        let scene = self
+            .copilot_preview_manager
+            .as_ref()
+            .map(|manager| manager.scene())
+            .or_else(|| self.scene_manager.as_ref().map(|manager| manager.scene()));
+        if let Some(scene) = scene {
+            project_scene_to_ecs(scene, &mut self.runtime);
         }
-        if let (Some(project), Some(manager)) = (self.project.as_mut(), self.scene_manager.as_ref())
-        {
-            *project.scene_mut() = manager.scene().clone();
+        if self.copilot_preview_manager.is_none() {
+            if let (Some(project), Some(manager)) =
+                (self.project.as_mut(), self.scene_manager.as_ref())
+            {
+                *project.scene_mut() = manager.scene().clone();
+            }
         }
     }
 
@@ -1200,6 +1231,165 @@ impl DesktopApp {
         }
     }
 
+    fn send_copilot_message(&mut self) {
+        let prompt = self.copilot_input.trim().to_string();
+        if prompt.is_empty() {
+            return;
+        }
+        self.copilot_messages.push(CopilotMessage {
+            role: CopilotRole::User,
+            text: prompt.clone(),
+        });
+        self.copilot_input.clear();
+
+        let Some(manager) = self.scene_manager.as_ref() else {
+            self.copilot_messages.push(CopilotMessage {
+                role: CopilotRole::Assistant,
+                text: "Open a project scene before using Copilot.".into(),
+            });
+            return;
+        };
+
+        let selection: Vec<_> = self.selection.primary().into_iter().collect();
+        match self
+            .copilot_engine
+            .ask(&prompt, manager.scene(), &selection)
+        {
+            Ok(CopilotResponse::Answer(answer)) => {
+                self.copilot_messages.push(CopilotMessage {
+                    role: CopilotRole::Assistant,
+                    text: answer,
+                });
+            }
+            Ok(CopilotResponse::Proposal(proposal)) => {
+                self.copilot_messages.push(CopilotMessage {
+                    role: CopilotRole::Assistant,
+                    text: format!("Proposal: {}", proposal.summary),
+                });
+                self.copilot_pending = Some(proposal);
+                self.copilot_preview_manager = None;
+            }
+            Err(err) => {
+                self.copilot_messages.push(CopilotMessage {
+                    role: CopilotRole::Assistant,
+                    text: format!("Copilot error: {err}"),
+                });
+            }
+        }
+    }
+
+    fn preview_copilot_proposal(&mut self) {
+        let Some(proposal) = self.copilot_pending.clone() else {
+            return;
+        };
+        let Some(manager) = self.scene_manager.as_ref() else {
+            return;
+        };
+        match CopilotEngine::preview(&proposal, manager.scene(), &mut self.ids) {
+            Ok(preview) => {
+                self.copilot_preview_manager = Some(preview);
+                self.sync_runtime();
+            }
+            Err(err) => {
+                self.copilot_messages.push(CopilotMessage {
+                    role: CopilotRole::Assistant,
+                    text: format!("Preview failed: {err}"),
+                });
+            }
+        }
+    }
+
+    fn approve_copilot_proposal(&mut self) {
+        let Some(proposal) = self.copilot_pending.take() else {
+            return;
+        };
+        let Some(manager) = self.scene_manager.as_mut() else {
+            return;
+        };
+        let transaction = proposal.into_transaction(self.ids.next_transaction_id());
+        match manager.apply(transaction) {
+            Ok(()) => {
+                self.copilot_preview_manager = None;
+                self.sync_runtime();
+                if let Some(project) = self.project.as_ref() {
+                    let _ = project.save();
+                }
+                self.copilot_messages.push(CopilotMessage {
+                    role: CopilotRole::Assistant,
+                    text: "Applied approved Copilot transaction.".into(),
+                });
+            }
+            Err(err) => {
+                self.copilot_messages.push(CopilotMessage {
+                    role: CopilotRole::Assistant,
+                    text: format!("Commit failed: {err}"),
+                });
+            }
+        }
+    }
+
+    fn reject_copilot_proposal(&mut self) {
+        self.copilot_pending = None;
+        self.copilot_preview_manager = None;
+        self.sync_runtime();
+        self.copilot_messages.push(CopilotMessage {
+            role: CopilotRole::Assistant,
+            text: "Discarded Copilot proposal.".into(),
+        });
+    }
+
+    fn draw_copilot_panel(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Copilot");
+        ui.label(
+            "Ask about the scene or request edits. Write proposals require preview + approval.",
+        );
+        egui::ScrollArea::vertical()
+            .max_height(160.0)
+            .stick_to_bottom(true)
+            .show(ui, |ui| {
+                for message in &self.copilot_messages {
+                    let prefix = match message.role {
+                        CopilotRole::User => "You",
+                        CopilotRole::Assistant => "Copilot",
+                    };
+                    ui.label(format!("{prefix}: {}", message.text));
+                }
+            });
+
+        let mut send = false;
+        ui.horizontal(|ui| {
+            let response = ui.text_edit_singleline(&mut self.copilot_input);
+            if response.lost_focus() && ui.input(|input| input.key_pressed(egui::Key::Enter)) {
+                send = true;
+            }
+            if ui.button("Send").clicked() {
+                send = true;
+            }
+        });
+        if send {
+            self.send_copilot_message();
+        }
+
+        if self.copilot_pending.is_some() {
+            ui.separator();
+            ui.label("Pending AI transaction");
+            ui.horizontal(|ui| {
+                if ui.button("Preview").clicked() {
+                    self.preview_copilot_proposal();
+                }
+                if ui.button("Approve").clicked() {
+                    self.approve_copilot_proposal();
+                }
+                if ui.button("Reject").clicked() {
+                    self.reject_copilot_proposal();
+                }
+            });
+            if self.copilot_preview_manager.is_some() {
+                ui.label("Preview active in viewport.");
+            }
+        }
+    }
+
     fn crop_selected_point_cloud(&mut self) {
         let Some(entity_id) = self.selection.primary() else {
             return;
@@ -1293,6 +1483,11 @@ impl DesktopApp {
                 .default_width(260.0)
                 .resizable(true)
                 .show(ctx, |ui| self.draw_inspector(ui));
+
+            egui::TopBottomPanel::bottom("copilot")
+                .default_height(220.0)
+                .resizable(true)
+                .show(ctx, |ui| self.draw_copilot_panel(ui));
 
             egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
                 ui.label(format!(

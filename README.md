@@ -4,7 +4,7 @@
 
 Create3D is an AI-native, GPU-native, cloud-native 3D creation platform built in Rust.
 
-This repository is in **Month 8** phase: Gaussian splat assets, 3DGS PLY import, chunked residency, viewport splat rendering, and crop/scale tools.
+This repository is in **Month 9** phase: AI tool protocol, context builder, mock Copilot provider, transaction preview/approval, and provenance on AI commits.
 
 ## Architecture
 
@@ -29,12 +29,13 @@ cargo run -p xtask -- check
 cargo run -p create3d-desktop
 ```
 
-The window includes Month 5/6 interaction tools plus Month 7 point cloud and Month 8 Gaussian splat features:
+The window includes Month 5/6 interaction tools plus Month 7 point cloud, Month 8 Gaussian splat, and Month 9 Copilot features:
 
 - **Import PLY**: toolbar button or command palette (`Import PLY Point Cloud`); auto-detects 3DGS PLY when using the generic PLY button
 - **Import 3DGS PLY**: toolbar button or command palette (`Import 3DGS PLY`)
 - **Point cloud viewport**: chunked GPU upload with residency (only nearby chunks are uploaded)
 - **Gaussian splat viewport**: alpha-blended splat quads with opacity/size scales and crop filters
+- **Copilot panel**: ask scene questions, preview AI-proposed transactions, approve/reject before commit
 - **Color modes**: RGB, Intensity, Classification (point clouds)
 - **Crop filter**: scene-level crop box in the inspector (point clouds and Gaussian splats)
 - **Derived crop asset**: create a cropped asset from the selection
@@ -42,6 +43,14 @@ The window includes Month 5/6 interaction tools plus Month 7 point cloud and Mon
 - **Hierarchy / Inspector / Gizmo / Command palette** from Month 5
 
 Imported GLB meshes render with base color and baked base-color textures. The desktop app persists a demo project under the system temp directory.
+
+Copilot examples (mock local provider):
+
+- `how many entities?`
+- `what is selected?`
+- `move up 1` (requires selection; preview then Approve)
+- `rename to Lamp`
+- `create entity Marker`
 
 ## CLI import
 
@@ -89,6 +98,10 @@ project.c3d/
 
 ```text
 Create3D/
+├── ai/
+│   ├── c3d-ai-tool-protocol/ # tool schema, registry, permission checks
+│   ├── c3d-ai-context/       # compact scene/selection context packs
+│   └── c3d-ai-copilot/       # mock provider, executor, preview/commit flow
 ├── apps/
 │   ├── create3d-desktop/    # winit + egui editor shell
 │   └── create3d-cli/        # import and project commands

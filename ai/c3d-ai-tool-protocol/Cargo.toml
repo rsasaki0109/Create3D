@@ -1,17 +1,15 @@
 [package]
-name = "c3d-scene-ops"
-description = "Create3D scene operations, transactions, and undo/redo"
+name = "c3d-ai-tool-protocol"
+description = "AI tool protocol schema, registry, and permission checks for Create3D"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
+publish = false
 
 [dependencies]
-c3d-core = { workspace = true, features = ["serde"] }
-c3d-scene-doc.workspace = true
-c3d-scene-schema.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
