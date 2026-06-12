@@ -1,0 +1,3 @@
+version = 1
+name = "URDF Robot Scene"
+main_scene = "scenes/main.c3dscene.json"

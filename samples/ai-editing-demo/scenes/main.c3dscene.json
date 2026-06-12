@@ -1,0 +1,39 @@
+{
+  "schema_version": 0,
+  "entities": [
+    {
+      "id": "01KV0GACFDYCW5XW2R5KE3DAWR",
+      "parent": null,
+      "name": {
+        "value": "Lamp"
+      },
+      "transform": {
+        "translation": [
+          0.0,
+          0.5,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "mesh_ref": {
+        "asset_id": "01KV0GACFDYCW5XW2R5KE3DAWP",
+        "submesh": null,
+        "topology_mode": "Triangles"
+      },
+      "material_binding": {
+        "material_id": "01KV0GACFDYCW5XW2R5KE3DAWQ",
+        "slot": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "schema_version": 0,
+  "entities": [
+    {
+      "id": "01KV0GABBXW1B1VDSXFW5PXJHM",
+      "parent": null,
+      "name": {
+        "value": "synthetic-point-cloud"
+      },
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "point_cloud_ref": {
+        "asset_id": "01KV0GABBXW1B1VDSXFW5PXJHK",
+        "color_mode": "Rgb"
+      }
+    }
+  ]
+}

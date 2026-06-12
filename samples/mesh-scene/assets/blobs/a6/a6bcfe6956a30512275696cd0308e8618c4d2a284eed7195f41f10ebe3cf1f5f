@@ -1,0 +1,1 @@
+{"version":1,"base_color":[0.75,0.55,0.25,1.0],"graph":{"version":1,"nodes":[{"id":0,"kind":{"ConstantColor":{"color":[0.75,0.55,0.25,1.0]}}},{"id":1,"kind":{"Output":{"base_color_node":0}}}]}}

@@ -136,7 +136,9 @@ impl Project {
         path: impl AsRef<Path>,
         ids: &mut UlidGenerator,
     ) -> ProjectResult<ImportReport> {
-        let import = c3d_import_gltf::import_gltf_path(path.as_ref())?;
+        let path = path.as_ref();
+        let import = c3d_import_gltf::import_gltf_path(path)
+            .map_err(|err| ProjectError::import_at_path("glTF/GLB", path, err))?;
         self.store_import(&import, ids)
     }
 

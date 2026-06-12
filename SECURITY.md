@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Create3D is pre-alpha. Only the latest `main` branch receives security fixes.
+Create3D is in **Alpha**. Security fixes land on `main`; see `SECURITY.md`.
 
 ## Reporting a vulnerability
 

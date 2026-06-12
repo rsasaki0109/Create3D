@@ -4,9 +4,9 @@ Thank you for contributing to Create3D.
 
 ## Development setup
 
-1. Install Rust 1.85+ with `rustfmt` and `clippy`.
+1. Install Rust 1.88+ with `rustfmt` and `clippy`.
 2. Clone the repository.
-3. Run `cargo test --workspace`.
+3. Run `cargo run -p xtask -- check`.
 
 Useful commands:
 

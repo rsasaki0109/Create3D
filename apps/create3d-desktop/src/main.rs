@@ -9,12 +9,13 @@ use c3d_asset_material::{MaterialAssetData, MaterialGraphData};
 use c3d_collab_core::{BranchProposal, CommentStatus, SceneComment};
 use c3d_core::logging::{init_logging, LoggingConfig};
 use c3d_core::math::{Vec2, Vec3};
+use c3d_core::C3D_VERSION;
 use c3d_core::{AssetId, EntityId, UlidGenerator};
 use c3d_ecs::{project_scene_to_ecs, RuntimeWorld};
 use c3d_editor_core::{CommandRegistry, SelectionState};
 use c3d_import_gsplat::looks_like_gsplat_ply;
 use c3d_mesh_authoring::PrimitiveKind;
-use c3d_project::Project;
+use c3d_project::{Project, ProjectTemplate, RecoverySnapshot};
 use c3d_rhi::Extent2D;
 use c3d_rhi_wgpu::WgpuBackend;
 use c3d_robotics_core::{
@@ -94,6 +95,9 @@ struct DesktopApp {
     collab_comments: Vec<SceneComment>,
     collab_proposals: Vec<BranchProposal>,
     applying_remote_sync: bool,
+    scene_dirty: bool,
+    last_autosave: Instant,
+    recovery_snapshot: Option<RecoverySnapshot>,
 }
 
 #[derive(Debug, Clone)]
@@ -199,6 +203,9 @@ impl Default for DesktopApp {
             collab_comments: Vec::new(),
             collab_proposals: Vec::new(),
             applying_remote_sync: false,
+            scene_dirty: false,
+            last_autosave: Instant::now(),
+            recovery_snapshot: None,
         }
     }
 }
@@ -257,32 +264,20 @@ impl ApplicationHandler for DesktopApp {
             )
         };
 
-        let mut project =
-            Project::create(default_project_dir(), "desktop-demo").expect("create project");
-        let mut scene_manager = TransactionManager::new(project.scene().clone());
-        let demo_entity = self.ids.next_entity_id();
-        scene_manager
-            .apply(Transaction::new(
-                self.ids.next_transaction_id(),
-                vec![SceneOperation::CreateEntity {
-                    entity_id: demo_entity,
-                    parent: None,
-                    name: Some(Name::new("DemoCube")),
-                    transform: Transform::IDENTITY,
-                    mesh_ref: None,
-                    material_binding: None,
-                    point_cloud_ref: None,
-                    gaussian_splat_ref: None,
-                    robot_root: None,
-                    robot_link: None,
-                    robot_joint: None,
-                }],
-            ))
-            .expect("create demo entity");
-        *project.scene_mut() = scene_manager.scene().clone();
-        project.save().expect("save project");
+        let project_dir = default_project_dir();
+        let (project, demo_entity) = open_or_create_desktop_project(&project_dir);
+        let scene_manager = TransactionManager::new(project.scene().clone());
+        if let Some(entity_id) = demo_entity {
+            self.selection.select(entity_id);
+        }
         project_scene_to_ecs(scene_manager.scene(), &mut self.runtime);
-        self.selection.select(demo_entity);
+        self.recovery_snapshot = project.recovery_is_newer().ok().and_then(|is_newer| {
+            if is_newer {
+                project.recovery_snapshot().ok().flatten()
+            } else {
+                None
+            }
+        });
 
         self.window = Some(window);
         self.backend = Some(backend);
@@ -299,8 +294,9 @@ impl ApplicationHandler for DesktopApp {
                 self.collab_proposals = store.proposals();
             }
         }
-        self.demo_entity = Some(demo_entity);
+        self.demo_entity = demo_entity;
         self.last_frame = Instant::now();
+        self.last_autosave = Instant::now();
     }
 
     fn window_event(
@@ -1637,6 +1633,7 @@ impl DesktopApp {
                 self.sync_runtime();
                 if !self.applying_remote_sync {
                     self.push_collab_transaction(transaction);
+                    self.scene_dirty = true;
                 }
                 true
             }
@@ -1645,6 +1642,70 @@ impl DesktopApp {
                 false
             }
         }
+    }
+
+    fn persist_project(&mut self) {
+        let Some(project) = self.project.as_mut() else {
+            return;
+        };
+        let Some(manager) = self.scene_manager.as_ref() else {
+            return;
+        };
+        *project.scene_mut() = manager.scene().clone();
+        if let Err(err) = project.save() {
+            tracing::warn!("project save failed: {err}");
+            return;
+        }
+        if let Err(err) = project.clear_recovery() {
+            tracing::warn!("recovery cleanup failed: {err}");
+        }
+        self.scene_dirty = false;
+        self.last_autosave = Instant::now();
+    }
+
+    fn tick_autosave(&mut self) {
+        if !self.scene_dirty {
+            return;
+        }
+        if self.last_autosave.elapsed().as_secs() < 30 {
+            return;
+        }
+        let Some(project) = self.project.as_mut() else {
+            return;
+        };
+        let Some(manager) = self.scene_manager.as_ref() else {
+            return;
+        };
+        *project.scene_mut() = manager.scene().clone();
+        if let Err(err) = project.write_autosave() {
+            tracing::warn!("autosave failed: {err}");
+            return;
+        }
+        self.last_autosave = Instant::now();
+    }
+
+    fn restore_recovery_snapshot(&mut self) {
+        let Some(project) = self.project.as_mut() else {
+            return;
+        };
+        match project.recover_from_autosave() {
+            Ok(_) => {
+                let scene = project.scene().clone();
+                self.scene_manager = Some(TransactionManager::new(scene.clone()));
+                project_scene_to_ecs(&scene, &mut self.runtime);
+                self.sync_runtime();
+                self.recovery_snapshot = None;
+                self.scene_dirty = false;
+            }
+            Err(err) => tracing::warn!("recovery restore failed: {err}"),
+        }
+    }
+
+    fn dismiss_recovery_snapshot(&mut self) {
+        if let Some(project) = self.project.as_ref() {
+            let _ = project.clear_recovery();
+        }
+        self.recovery_snapshot = None;
     }
 
     fn push_collab_transaction(&mut self, transaction: Transaction) {
@@ -2026,6 +2087,7 @@ impl DesktopApp {
         self.tick_robotics_mock();
         self.poll_collab();
         self.update_collab_presence();
+        self.tick_autosave();
 
         let window = self.window.clone().expect("window");
         let egui_ctx = self.egui_ctx.clone().expect("egui ctx");
@@ -2060,6 +2122,22 @@ impl DesktopApp {
         let full_output = egui_ctx.run(raw_input, |ctx| {
             import_request = self.handle_shortcuts(ctx);
 
+            if self.recovery_snapshot.is_some() {
+                egui::TopBottomPanel::top("recovery")
+                    .exact_height(28.0)
+                    .show(ctx, |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label("Recovery snapshot available from an unexpected shutdown.");
+                            if ui.button("Restore").clicked() {
+                                self.restore_recovery_snapshot();
+                            }
+                            if ui.button("Dismiss").clicked() {
+                                self.dismiss_recovery_snapshot();
+                            }
+                        });
+                    });
+            }
+
             egui::SidePanel::left("hierarchy")
                 .default_width(220.0)
                 .resizable(true)
@@ -2087,9 +2165,16 @@ impl DesktopApp {
 
             egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
                 ui.label(format!(
-                    "Create3D | frame {:.1} ms | Ctrl+Shift+P palette",
+                    "Create3D Alpha {C3D_VERSION} | frame {:.1} ms | Ctrl+Shift+P palette",
                     self.frame_ms
                 ));
+                if self.scene_dirty {
+                    ui.label("(unsaved changes)");
+                }
+                ui.separator();
+                if ui.button("Save Project").clicked() {
+                    self.persist_project();
+                }
                 ui.separator();
                 if ui.button("Import GLB").clicked() {
                     import_request = rfd::FileDialog::new()
@@ -2243,4 +2328,30 @@ impl DesktopApp {
 
 fn default_project_dir() -> PathBuf {
     std::env::temp_dir().join("create3d-desktop-project")
+}
+
+fn open_or_create_desktop_project(project_dir: &PathBuf) -> (Project, Option<EntityId>) {
+    if project_dir.join("manifest.c3d.toml").is_file() {
+        let project = Project::open(project_dir).expect("open desktop project");
+        let demo_entity = project.scene().entities().find_map(|entity| {
+            entity
+                .name
+                .as_ref()
+                .filter(|name| name.value == "Lamp" || name.value == "Cube")
+                .map(|_| entity.id)
+        });
+        return (project, demo_entity);
+    }
+
+    let project =
+        Project::create_from_template(project_dir, "desktop-demo", ProjectTemplate::AiEditingDemo)
+            .expect("create desktop project");
+    let demo_entity = project.scene().entities().find_map(|entity| {
+        entity
+            .name
+            .as_ref()
+            .filter(|name| name.value == "Lamp")
+            .map(|_| entity.id)
+    });
+    (project, demo_entity)
 }

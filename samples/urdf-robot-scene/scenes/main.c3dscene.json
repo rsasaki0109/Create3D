@@ -1,0 +1,195 @@
+{
+  "schema_version": 0,
+  "entities": [
+    {
+      "id": "01KV0GAC363N9A2MNMEMJPSAKQ",
+      "parent": null,
+      "name": {
+        "value": "preview_arm"
+      },
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "robot_root": {
+        "robot_name": "preview_arm"
+      }
+    },
+    {
+      "id": "01KV0GAC37F9X6JKHRKZCJV7BR",
+      "parent": "01KV0GAC363N9A2MNMEMJPSAKQ",
+      "name": {
+        "value": "base_link"
+      },
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "robot_link": {
+        "link_name": "base_link"
+      }
+    },
+    {
+      "id": "01KV0GAC37F9X6JKHRKZCJV7BV",
+      "parent": "01KV0GAC37F9X6JKHRKZCJV7BR",
+      "name": {
+        "value": "base_link_base_visual"
+      },
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.05
+        ],
+        "rotation": [
+          0.0,
+          -0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.2,
+          0.2,
+          0.1
+        ]
+      },
+      "mesh_ref": {
+        "asset_id": "01KV0GAC37F9X6JKHRKZCJV7BS",
+        "submesh": null,
+        "topology_mode": "Triangles"
+      },
+      "material_binding": {
+        "material_id": "01KV0GAC37F9X6JKHRKZCJV7BT",
+        "slot": null
+      }
+    },
+    {
+      "id": "01KV0GAC37F9X6JKHRKZCJV7BW",
+      "parent": "01KV0GAC37F9X6JKHRKZCJV7BR",
+      "name": {
+        "value": "upper_arm"
+      },
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.1
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "robot_link": {
+        "link_name": "upper_arm"
+      },
+      "robot_joint": {
+        "joint_name": "shoulder",
+        "joint_type": "Revolute",
+        "parent_link": "base_link",
+        "child_link": "upper_arm",
+        "axis": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "origin": {
+          "translation": [
+            0.0,
+            0.0,
+            0.1
+          ],
+          "rotation": [
+            0.0,
+            -0.0,
+            0.0,
+            1.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        "limits": {
+          "lower": -1.57,
+          "upper": 1.57,
+          "effort": 10.0,
+          "velocity": 1.0
+        },
+        "position": 0.0,
+        "velocity": 0.0,
+        "ros_topic": "/joint_states"
+      }
+    },
+    {
+      "id": "01KV0GAC38BJG31PNV0C2XCQPK",
+      "parent": "01KV0GAC37F9X6JKHRKZCJV7BW",
+      "name": {
+        "value": "upper_arm_arm_visual"
+      },
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.25
+        ],
+        "rotation": [
+          0.0,
+          -0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          0.08,
+          0.08,
+          0.5
+        ]
+      },
+      "mesh_ref": {
+        "asset_id": "01KV0GAC37F9X6JKHRKZCJV7BX",
+        "submesh": null,
+        "topology_mode": "Triangles"
+      },
+      "material_binding": {
+        "material_id": "01KV0GAC37F9X6JKHRKZCJV7BY",
+        "slot": null
+      }
+    }
+  ]
+}

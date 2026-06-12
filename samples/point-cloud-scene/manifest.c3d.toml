@@ -1,0 +1,3 @@
+version = 1
+name = "Point Cloud Scene"
+main_scene = "scenes/main.c3dscene.json"

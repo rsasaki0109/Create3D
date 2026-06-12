@@ -29,8 +29,9 @@ impl Project {
         path: impl AsRef<std::path::Path>,
         ids: &mut UlidGenerator,
     ) -> ProjectResult<PointCloudImportReport> {
-        let imported = c3d_import_ply::import_ply_path(path.as_ref())
-            .map_err(ProjectError::PointCloudImport)?;
+        let path = path.as_ref();
+        let imported = c3d_import_ply::import_ply_path(path)
+            .map_err(|err| ProjectError::import_at_path("PLY point cloud", path, err))?;
         self.store_ply_import(imported, ids)
     }
 

@@ -1,0 +1,73 @@
+{
+  "schema_version": 0,
+  "entities": [
+    {
+      "id": "01KV0GAB23Z8KJDHTNQ3H9CKR3",
+      "parent": null,
+      "name": {
+        "value": "Floor"
+      },
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "mesh_ref": {
+        "asset_id": "01KV0GAB23Z8KJDHTNQ3H9CKR1",
+        "submesh": null,
+        "topology_mode": "Triangles"
+      },
+      "material_binding": {
+        "material_id": "01KV0GAB23Z8KJDHTNQ3H9CKR2",
+        "slot": null
+      }
+    },
+    {
+      "id": "01KV0GAB27SD47JCQRZFKKM4YZ",
+      "parent": null,
+      "name": {
+        "value": "Cube"
+      },
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "mesh_ref": {
+        "asset_id": "01KV0GAB27SD47JCQRZFKKM4YX",
+        "submesh": null,
+        "topology_mode": "Triangles"
+      },
+      "material_binding": {
+        "material_id": "01KV0GAB27SD47JCQRZFKKM4YY",
+        "slot": null
+      }
+    }
+  ]
+}

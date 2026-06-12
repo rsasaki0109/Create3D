@@ -33,7 +33,8 @@ impl Project {
         ids: &mut UlidGenerator,
     ) -> ProjectResult<UrdfImportReport> {
         let path = path.as_ref();
-        let plan = parse_urdf_file(path).map_err(ProjectError::Urdf)?;
+        let plan =
+            parse_urdf_file(path).map_err(|err| ProjectError::import_at_path("URDF", path, err))?;
         let package_path = path
             .parent()
             .map(|parent| parent.to_string_lossy().into_owned());

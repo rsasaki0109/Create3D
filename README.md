@@ -4,7 +4,7 @@
 
 Create3D is an AI-native, GPU-native, cloud-native 3D creation platform built in Rust.
 
-This repository is in **Month 11** phase: operation log sync, presence, anchored comments, branch/proposal model, and conflict-safe transform synchronization.
+This repository is in **Alpha (0.1.0-alpha)** — Month 12 hardening: templates, samples, autosave recovery, benchmarks, guides, and release packaging.
 
 ## Architecture
 
@@ -21,6 +21,9 @@ See `Create3D/docs/architecture/create3d_master_architecture_design.md` for the 
 ```bash
 cargo test --workspace
 cargo run -p xtask -- check
+cargo run -p xtask -- package   # release binaries
+cargo run -p xtask -- samples   # regenerate sample projects
+cargo run -p xtask -- bench     # scene replay benchmark
 ```
 
 ## Desktop editor
@@ -101,6 +104,27 @@ cargo run -p create3d-sync-server -- --bind 127.0.0.1:9731 --workspace default-w
 
 Open two desktop editor instances, connect both to the sync server, and move a shared selection to sync transforms.
 
+Create a project from a built-in template:
+
+```bash
+cargo run -p create3d-cli -- list-templates
+cargo run -p create3d-cli -- create \
+  --output /tmp/my-project \
+  --name "My Project" \
+  --template mesh-scene
+```
+
+Sample projects live under `samples/` (see `samples/README.md`).
+
+## Alpha guides
+
+- [User guide](Create3D/docs/guides/user-guide.md)
+- [Plugin guide v0](Create3D/docs/guides/plugin-guide-v0.md)
+- [AI tool guide](Create3D/docs/guides/ai-tool-guide.md)
+- [Robotics guide](Create3D/docs/guides/robotics-guide.md)
+- [Known limitations](Create3D/docs/known-limitations.md)
+- [CHANGELOG](Create3D/CHANGELOG.md)
+
 Project layout:
 
 ```text
@@ -157,10 +181,11 @@ Create3D/
 │   ├── c3d-scene-doc/       # SceneDB document + serialization
 │   └── c3d-scene-ops/       # operations, transactions, undo/redo
 ├── tools/
-│   ├── xtask/               # fmt/clippy/test helper
+│   ├── xtask/               # fmt/clippy/test/samples/bench/package
 │   └── readme-preview/      # offscreen viewport capture for README assets
+├── samples/                 # template-generated demo projects
 ├── tests/golden-scenes/     # golden replay harness
-└── docs/                    # architecture, RFCs, guides
+└── docs/                    # architecture, RFCs, guides, known limitations
 ```
 
 ## License

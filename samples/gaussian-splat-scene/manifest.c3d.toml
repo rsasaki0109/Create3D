@@ -1,0 +1,3 @@
+version = 1
+name = "Gaussian Splat Scene"
+main_scene = "scenes/main.c3dscene.json"

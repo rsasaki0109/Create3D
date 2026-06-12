@@ -47,6 +47,19 @@ pub enum ProjectError {
     /// URDF import failure.
     #[error("urdf import error: {0}")]
     UrdfImport(String),
+    /// Recovery snapshot failure.
+    #[error("recovery error: {0}")]
+    Recovery(String),
+    /// Import failure with source path context.
+    #[error("failed to import {kind} from `{path}`: {message}")]
+    ImportAtPath {
+        /// Import kind label.
+        kind: &'static str,
+        /// Source path.
+        path: String,
+        /// Underlying error message.
+        message: String,
+    },
     /// Project was not found.
     #[error("project not found at {0}")]
     NotFound(String),
@@ -60,5 +73,18 @@ impl ProjectError {
     /// Build a missing asset error.
     pub fn missing_asset(asset_id: AssetId) -> Self {
         ProjectError::Asset(AssetError::NotFound(asset_id))
+    }
+
+    /// Wrap an import failure with source path context.
+    pub fn import_at_path(
+        kind: &'static str,
+        path: impl AsRef<std::path::Path>,
+        err: impl std::fmt::Display,
+    ) -> Self {
+        Self::ImportAtPath {
+            kind,
+            path: path.as_ref().display().to_string(),
+            message: err.to_string(),
+        }
     }
 }

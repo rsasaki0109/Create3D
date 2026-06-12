@@ -1,9 +1,12 @@
 //! Create3D command-line tools.
 
 use std::path::PathBuf;
+use std::time::Instant;
 
 use c3d_core::{init_logging, LoggingConfig, UlidGenerator};
-use c3d_project::Project;
+use c3d_project::{Project, ProjectTemplate};
+use c3d_scene_ops::{SceneOperation, Transaction, TransactionManager};
+use c3d_scene_schema::TransformOp;
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
@@ -15,6 +18,29 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Create a project from a built-in template.
+    Create {
+        /// Project output directory.
+        #[arg(long)]
+        output: PathBuf,
+        /// Project name.
+        #[arg(long, default_value = "create3d-project")]
+        name: String,
+        /// Template id (`list-templates` for options).
+        #[arg(long, default_value = "mesh-scene")]
+        template: String,
+    },
+    /// List built-in project templates.
+    ListTemplates,
+    /// Benchmark large-scene transaction replay throughput.
+    Bench {
+        /// Number of entities to create for the benchmark scene.
+        #[arg(long, default_value_t = 1_024)]
+        entities: usize,
+        /// Number of translate replay iterations.
+        #[arg(long, default_value_t = 256)]
+        iterations: usize,
+    },
     /// Import a glTF/GLB file into a new or existing project.
     Import {
         /// glTF/GLB source file.
@@ -77,6 +103,16 @@ fn main() {
 
 fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
+        Command::Create {
+            output,
+            name,
+            template,
+        } => create_project(output, name, template),
+        Command::ListTemplates => list_templates(),
+        Command::Bench {
+            entities,
+            iterations,
+        } => bench_scene_replay(entities, iterations),
         Command::Import {
             input,
             output,
@@ -98,6 +134,95 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             name,
         } => import_urdf(input, output, name),
     }
+}
+
+fn create_project(
+    output: PathBuf,
+    name: String,
+    template: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let template = ProjectTemplate::parse(&template).ok_or_else(|| {
+        format!("unknown template `{template}`; run `list-templates` for valid ids")
+    })?;
+    if output.exists() && !output.join("manifest.c3d.toml").is_file() {
+        return Err(format!(
+            "output path `{}` exists and is not a Create3D project",
+            output.display()
+        )
+        .into());
+    }
+    if output.join("manifest.c3d.toml").is_file() {
+        return Err(format!(
+            "project already exists at `{}`; choose an empty directory",
+            output.display()
+        )
+        .into());
+    }
+    let project = Project::create_from_template(&output, name, template)?;
+    println!(
+        "Created `{}` template project at {} ({} entities)",
+        template.id(),
+        output.display(),
+        project.scene().entity_count()
+    );
+    Ok(())
+}
+
+fn list_templates() -> Result<(), Box<dyn std::error::Error>> {
+    for template in ProjectTemplate::all() {
+        println!("{}\t{}", template.id(), template.description());
+    }
+    Ok(())
+}
+
+fn bench_scene_replay(
+    entities: usize,
+    iterations: usize,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let temp = tempfile::tempdir()?;
+    let mut project = Project::create_from_template(temp.path(), "bench", ProjectTemplate::Empty)?;
+    let mut ids = UlidGenerator::new();
+    let mut entity_ids = Vec::with_capacity(entities);
+    for index in 0..entities {
+        let entity_id = ids.next_entity_id();
+        entity_ids.push(entity_id);
+        c3d_scene_ops::apply_operations(
+            project.scene_mut(),
+            &[SceneOperation::CreateEntity {
+                entity_id,
+                parent: None,
+                name: Some(format!("Entity{index}").into()),
+                transform: Default::default(),
+                mesh_ref: None,
+                material_binding: None,
+                point_cloud_ref: None,
+                gaussian_splat_ref: None,
+                robot_root: None,
+                robot_link: None,
+                robot_joint: None,
+            }],
+        )?;
+    }
+
+    let mut manager = TransactionManager::new(project.scene().clone());
+    let start = Instant::now();
+    for step in 0..iterations {
+        let entity_id = entity_ids[step % entity_ids.len()];
+        manager.apply(Transaction::new(
+            ids.next_transaction_id(),
+            vec![SceneOperation::TransformOp {
+                entity_id,
+                op: TransformOp::Translate(c3d_core::math::Vec3::new(0.01, 0.0, 0.0)),
+            }],
+        ))?;
+    }
+    let elapsed = start.elapsed();
+    let ops_per_sec = iterations as f64 / elapsed.as_secs_f64();
+    println!(
+        "bench scene replay: {entities} entities, {iterations} translate ops in {:.2?} ({ops_per_sec:.0} ops/s)",
+        elapsed
+    );
+    Ok(())
 }
 
 fn import_gltf(

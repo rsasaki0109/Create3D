@@ -29,8 +29,9 @@ impl Project {
         path: impl AsRef<std::path::Path>,
         ids: &mut UlidGenerator,
     ) -> ProjectResult<GaussianSplatImportReport> {
-        let imported = c3d_import_gsplat::import_gsplat_ply_path(path.as_ref())
-            .map_err(ProjectError::GaussianSplatImport)?;
+        let path = path.as_ref();
+        let imported = c3d_import_gsplat::import_gsplat_ply_path(path)
+            .map_err(|err| ProjectError::import_at_path("3DGS PLY", path, err))?;
         self.store_gsplat_import(imported, ids)
     }
 

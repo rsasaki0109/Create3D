@@ -1,0 +1,3 @@
+version = 1
+name = "AI Editing Demo"
+main_scene = "scenes/main.c3dscene.json"

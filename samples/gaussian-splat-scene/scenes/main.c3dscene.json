@@ -1,0 +1,35 @@
+{
+  "schema_version": 0,
+  "entities": [
+    {
+      "id": "01KV0GABQCPANCN44MP57JS4WZ",
+      "parent": null,
+      "name": {
+        "value": "synthetic-gaussian-splat"
+      },
+      "transform": {
+        "translation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "gaussian_splat_ref": {
+        "asset_id": "01KV0GABQCPANCN44MP57JS4WY",
+        "opacity_scale": 1.0,
+        "size_scale": 1.0
+      }
+    }
+  ]
+}

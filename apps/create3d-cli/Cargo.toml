@@ -14,7 +14,10 @@ path = "src/main.rs"
 [dependencies]
 c3d-core = { workspace = true, features = ["serde"] }
 c3d-project.workspace = true
+c3d-scene-ops.workspace = true
+c3d-scene-schema.workspace = true
 clap.workspace = true
+tempfile = "3"
 thiserror.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

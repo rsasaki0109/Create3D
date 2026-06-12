@@ -1,0 +1,1 @@
+{"version":1,"point_count":5000,"bounds_min":[-0.9999992,-0.99999976,0.0],"bounds_max":[1.0,1.0,4.9500003],"has_rgb":true,"has_intensity":true,"has_classification":true,"chunks":[{"chunk_id":0,"bounds_min":[-0.9999992,-0.99999976,0.0],"bounds_max":[1.0,1.0,4.9500003],"point_count":5000,"blob_asset_id":"01KV0GABBWCRS2KQZCJ5ABGQK8","lod_stride":1}]}
