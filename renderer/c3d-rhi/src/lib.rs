@@ -69,6 +69,8 @@ pub struct RenderPipelineDesc<'a> {
     pub topology: PrimitiveTopology,
     /// Whether back-face culling is enabled.
     pub cull_back_faces: bool,
+    /// Whether alpha blending is enabled for the color target.
+    pub alpha_blend: bool,
 }
 
 /// Primitive topology for render pipelines.

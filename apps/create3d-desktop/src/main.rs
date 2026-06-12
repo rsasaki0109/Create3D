@@ -10,17 +10,19 @@ use c3d_core::math::{Vec2, Vec3};
 use c3d_core::{AssetId, EntityId, UlidGenerator};
 use c3d_ecs::{project_scene_to_ecs, RuntimeWorld};
 use c3d_editor_core::{CommandRegistry, SelectionState};
+use c3d_import_gsplat::looks_like_gsplat_ply;
 use c3d_mesh_authoring::PrimitiveKind;
 use c3d_project::Project;
 use c3d_rhi::Extent2D;
 use c3d_rhi_wgpu::WgpuBackend;
 use c3d_scene_ops::{SceneOperation, Transaction, TransactionManager};
 use c3d_scene_schema::{
-    Name, PointCloudColorMode, PointCloudCropBox, PointCloudRef, Transform, TransformOp,
+    GaussianSplatRef, Name, PointCloudColorMode, PointCloudCropBox, PointCloudRef, Transform,
+    TransformOp,
 };
 use c3d_viewport::{
     gizmo_drag_delta, pick_entity, pick_gizmo_axis, GizmoDragState, MeshGpuCache, OrbitCamera,
-    PointCloudGpuCache, ViewportRenderer, ViewportShadingMode,
+    PointCloudGpuCache, SplatGpuCache, ViewportRenderer, ViewportShadingMode,
 };
 use egui_wgpu::wgpu;
 use egui_wgpu::{Renderer as EguiRenderer, ScreenDescriptor};
@@ -51,6 +53,7 @@ struct DesktopApp {
     project: Option<Project>,
     mesh_cache: MeshGpuCache,
     point_cloud_cache: PointCloudGpuCache,
+    splat_cache: SplatGpuCache,
     scene_manager: Option<TransactionManager>,
     ids: UlidGenerator,
     demo_entity: Option<EntityId>,
@@ -76,8 +79,18 @@ struct InspectorState {
     base_color: [f32; 4],
     point_cloud_asset_id: Option<AssetId>,
     point_cloud_color_mode: PointCloudColorMode,
+    gaussian_splat_asset_id: Option<AssetId>,
+    gaussian_splat_opacity_scale: f32,
+    gaussian_splat_size_scale: f32,
     crop_min: [f32; 3],
     crop_max: [f32; 3],
+}
+
+enum ImportRequest {
+    Glb(PathBuf),
+    PointCloudPly(PathBuf),
+    GsplatPly(PathBuf),
+    AutoPly(PathBuf),
 }
 
 impl InspectorState {
@@ -104,6 +117,7 @@ impl Default for DesktopApp {
             project: None,
             mesh_cache: MeshGpuCache::default(),
             point_cloud_cache: PointCloudGpuCache::default(),
+            splat_cache: SplatGpuCache::default(),
             scene_manager: None,
             ids: UlidGenerator::default(),
             demo_entity: None,
@@ -194,6 +208,7 @@ impl ApplicationHandler for DesktopApp {
                     mesh_ref: None,
                     material_binding: None,
                     point_cloud_ref: None,
+                    gaussian_splat_ref: None,
                 }],
             ))
             .expect("create demo entity");
@@ -315,7 +330,7 @@ impl DesktopApp {
         }
     }
 
-    fn run_command(&mut self, command_id: &str) -> Option<PathBuf> {
+    fn run_command(&mut self, command_id: &str) -> Option<ImportRequest> {
         match command_id {
             "edit.undo" => {
                 self.undo();
@@ -327,12 +342,22 @@ impl DesktopApp {
             }
             "scene.import_glb" => rfd::FileDialog::new()
                 .add_filter("glTF", &["gltf", "glb"])
-                .pick_file(),
+                .pick_file()
+                .map(ImportRequest::Glb),
             "scene.import_ply" => rfd::FileDialog::new()
                 .add_filter("PLY", &["ply"])
-                .pick_file(),
+                .pick_file()
+                .map(ImportRequest::PointCloudPly),
+            "scene.import_gsplat" => rfd::FileDialog::new()
+                .add_filter("3DGS PLY", &["ply"])
+                .pick_file()
+                .map(ImportRequest::GsplatPly),
             "pointcloud.crop_derived" => {
                 self.crop_selected_point_cloud();
+                None
+            }
+            "gsplat.crop_derived" => {
+                self.crop_selected_gaussian_splat();
                 None
             }
             "view.focus_selection" => {
@@ -377,6 +402,7 @@ impl DesktopApp {
         self.selection.select(report.entity_id);
         self.mesh_cache.invalidate_all();
         self.point_cloud_cache.invalidate_all();
+        self.splat_cache.invalidate_all();
         self.sync_runtime();
         if let Some(project) = self.project.as_ref() {
             let _ = project.save();
@@ -433,6 +459,7 @@ impl DesktopApp {
         }
         self.mesh_cache.invalidate_all();
         self.point_cloud_cache.invalidate_all();
+        self.splat_cache.invalidate_all();
         self.sync_runtime();
         if let Some(project) = self.project.as_ref() {
             let _ = project.save();
@@ -589,10 +616,18 @@ impl DesktopApp {
             .and_then(|material| material.resolved().ok())
             .map(|resolved| resolved.base_color)
             .unwrap_or([1.0, 1.0, 1.0, 1.0]);
+        self.inspector.point_cloud_asset_id = None;
+        self.inspector.gaussian_splat_asset_id = None;
+        self.inspector.gaussian_splat_opacity_scale = 1.0;
+        self.inspector.gaussian_splat_size_scale = 1.0;
         self.inspector.point_cloud_asset_id = entity
             .point_cloud_ref
             .as_ref()
             .map(|point_cloud| point_cloud.asset_id);
+        self.inspector.gaussian_splat_asset_id = entity
+            .gaussian_splat_ref
+            .as_ref()
+            .map(|gaussian_splat| gaussian_splat.asset_id);
         if let Some(point_cloud) = entity.point_cloud_ref.as_ref() {
             self.inspector.point_cloud_color_mode = point_cloud.color_mode;
             if let Some(crop) = point_cloud.crop_filter {
@@ -600,6 +635,19 @@ impl DesktopApp {
                 self.inspector.crop_max = crop.max;
             } else if let Some(project) = self.project.as_ref() {
                 if let Ok(metadata) = project.point_cloud_asset(point_cloud.asset_id) {
+                    self.inspector.crop_min = metadata.bounds_min;
+                    self.inspector.crop_max = metadata.bounds_max;
+                }
+            }
+        }
+        if let Some(gaussian_splat) = entity.gaussian_splat_ref.as_ref() {
+            self.inspector.gaussian_splat_opacity_scale = gaussian_splat.opacity_scale;
+            self.inspector.gaussian_splat_size_scale = gaussian_splat.size_scale;
+            if let Some(crop) = gaussian_splat.crop_filter {
+                self.inspector.crop_min = crop.min;
+                self.inspector.crop_max = crop.max;
+            } else if let Some(project) = self.project.as_ref() {
+                if let Ok(metadata) = project.gaussian_splat_asset(gaussian_splat.asset_id) {
                     self.inspector.crop_min = metadata.bounds_min;
                     self.inspector.crop_max = metadata.bounds_max;
                 }
@@ -750,6 +798,78 @@ impl DesktopApp {
                 self.crop_selected_point_cloud();
             }
         }
+
+        if let Some(asset_id) = self.inspector.gaussian_splat_asset_id {
+            ui.separator();
+            ui.label("Gaussian Splat");
+            ui.monospace(format!("{asset_id}"));
+            let mut opacity_scale = self.inspector.gaussian_splat_opacity_scale;
+            let mut size_scale = self.inspector.gaussian_splat_size_scale;
+            let mut scale_changed = false;
+            scale_changed |= ui
+                .add(
+                    egui::DragValue::new(&mut opacity_scale)
+                        .speed(0.01)
+                        .range(0.0..=2.0)
+                        .prefix("Opacity "),
+                )
+                .changed();
+            scale_changed |= ui
+                .add(
+                    egui::DragValue::new(&mut size_scale)
+                        .speed(0.01)
+                        .range(0.1..=4.0)
+                        .prefix("Size "),
+                )
+                .changed();
+            if scale_changed {
+                self.inspector.gaussian_splat_opacity_scale = opacity_scale;
+                self.inspector.gaussian_splat_size_scale = size_scale;
+                self.apply_gaussian_splat_scales(entity_id, asset_id, opacity_scale, size_scale);
+            }
+
+            ui.label("Crop Filter");
+            let mut crop_min = self.inspector.crop_min;
+            let mut crop_max = self.inspector.crop_max;
+            let mut crop_changed = false;
+            ui.horizontal(|ui| {
+                crop_changed |= ui
+                    .add(egui::DragValue::new(&mut crop_min[0]).speed(0.05))
+                    .changed();
+                crop_changed |= ui
+                    .add(egui::DragValue::new(&mut crop_min[1]).speed(0.05))
+                    .changed();
+                crop_changed |= ui
+                    .add(egui::DragValue::new(&mut crop_min[2]).speed(0.05))
+                    .changed();
+            });
+            ui.horizontal(|ui| {
+                crop_changed |= ui
+                    .add(egui::DragValue::new(&mut crop_max[0]).speed(0.05))
+                    .changed();
+                crop_changed |= ui
+                    .add(egui::DragValue::new(&mut crop_max[1]).speed(0.05))
+                    .changed();
+                crop_changed |= ui
+                    .add(egui::DragValue::new(&mut crop_max[2]).speed(0.05))
+                    .changed();
+            });
+            if crop_changed {
+                self.inspector.crop_min = crop_min;
+                self.inspector.crop_max = crop_max;
+                self.apply_gaussian_splat_crop_filter(
+                    entity_id,
+                    asset_id,
+                    PointCloudCropBox {
+                        min: crop_min,
+                        max: crop_max,
+                    },
+                );
+            }
+            if ui.button("Create Derived Cropped Asset").clicked() {
+                self.crop_selected_gaussian_splat();
+            }
+        }
     }
 
     fn draw_hierarchy(&mut self, ui: &mut egui::Ui) {
@@ -772,8 +892,8 @@ impl DesktopApp {
         }
     }
 
-    fn handle_shortcuts(&mut self, ctx: &egui::Context) -> Option<PathBuf> {
-        let mut import_path = None;
+    fn handle_shortcuts(&mut self, ctx: &egui::Context) -> Option<ImportRequest> {
+        let mut import_request = None;
         ctx.input(|input| {
             if input.modifiers.ctrl && input.key_pressed(egui::Key::Z) && !input.modifiers.shift {
                 self.undo();
@@ -826,11 +946,11 @@ impl DesktopApp {
                 self.palette_query.clear();
             }
             if let Some(command_id) = run_command {
-                import_path = self.run_command(command_id);
+                import_request = self.run_command(command_id);
             }
         }
 
-        import_path
+        import_request
     }
 
     fn import_glb(&mut self, path: PathBuf) {
@@ -873,6 +993,7 @@ impl DesktopApp {
                 self.scene_manager = Some(TransactionManager::new(scene));
                 self.selection.select(report.entity_id);
                 self.point_cloud_cache.invalidate_all();
+                self.splat_cache.invalidate_all();
                 self.sync_runtime();
                 if let Some(project) = self.project.as_ref() {
                     let _ = project.save();
@@ -884,6 +1005,148 @@ impl DesktopApp {
                 );
             }
             Err(err) => tracing::error!("ply import failed: {err}"),
+        }
+    }
+
+    fn import_gsplat(&mut self, path: PathBuf) {
+        let Some(project) = self.project.as_mut() else {
+            return;
+        };
+        match project.import_gsplat_ply(path, &mut self.ids) {
+            Ok(report) => {
+                let scene = self.project.as_ref().expect("project").scene().clone();
+                self.scene_manager = Some(TransactionManager::new(scene));
+                self.selection.select(report.entity_id);
+                self.point_cloud_cache.invalidate_all();
+                self.splat_cache.invalidate_all();
+                self.sync_runtime();
+                if let Some(project) = self.project.as_ref() {
+                    let _ = project.save();
+                }
+                tracing::info!(
+                    "imported gaussian splats with {} splats in {} chunks",
+                    report.splat_count,
+                    report.chunk_assets.len()
+                );
+            }
+            Err(err) => tracing::error!("gsplat import failed: {err}"),
+        }
+    }
+
+    fn dispatch_import(&mut self, request: ImportRequest) {
+        match request {
+            ImportRequest::Glb(path) => self.import_glb(path),
+            ImportRequest::PointCloudPly(path) => self.import_ply(path),
+            ImportRequest::GsplatPly(path) => self.import_gsplat(path),
+            ImportRequest::AutoPly(path) => {
+                let is_gsplat = std::fs::read(&path)
+                    .ok()
+                    .is_some_and(|bytes| looks_like_gsplat_ply(&bytes));
+                if is_gsplat {
+                    self.import_gsplat(path);
+                } else {
+                    self.import_ply(path);
+                }
+            }
+        }
+    }
+
+    fn apply_gaussian_splat_scales(
+        &mut self,
+        entity_id: EntityId,
+        asset_id: AssetId,
+        opacity_scale: f32,
+        size_scale: f32,
+    ) {
+        self.inspector.gaussian_splat_opacity_scale = opacity_scale;
+        self.inspector.gaussian_splat_size_scale = size_scale;
+        let gaussian_splat_ref = GaussianSplatRef {
+            asset_id,
+            opacity_scale,
+            size_scale,
+            crop_filter: Some(self.inspector.crop_filter_from_state()),
+        };
+        if let Some(manager) = self.scene_manager.as_mut() {
+            let _ = manager.apply(Transaction::new(
+                self.ids.next_transaction_id(),
+                vec![SceneOperation::SetGaussianSplatRef {
+                    entity_id,
+                    gaussian_splat_ref,
+                }],
+            ));
+            self.splat_cache.invalidate_all();
+            self.sync_runtime();
+        }
+    }
+
+    fn apply_gaussian_splat_crop_filter(
+        &mut self,
+        entity_id: EntityId,
+        asset_id: AssetId,
+        crop: PointCloudCropBox,
+    ) {
+        let gaussian_splat_ref = GaussianSplatRef {
+            asset_id,
+            opacity_scale: self.inspector.gaussian_splat_opacity_scale,
+            size_scale: self.inspector.gaussian_splat_size_scale,
+            crop_filter: Some(crop),
+        };
+        if let Some(manager) = self.scene_manager.as_mut() {
+            let _ = manager.apply(Transaction::new(
+                self.ids.next_transaction_id(),
+                vec![SceneOperation::SetGaussianSplatRef {
+                    entity_id,
+                    gaussian_splat_ref,
+                }],
+            ));
+            self.splat_cache.invalidate_all();
+            self.sync_runtime();
+        }
+    }
+
+    fn crop_selected_gaussian_splat(&mut self) {
+        let Some(entity_id) = self.selection.primary() else {
+            return;
+        };
+        let Some(project) = self.project.as_mut() else {
+            return;
+        };
+        let Some(entity) = project.scene().get(entity_id) else {
+            return;
+        };
+        let Some(gaussian_splat_ref) = entity.gaussian_splat_ref.clone() else {
+            return;
+        };
+        let crop = self.inspector.crop_filter_from_state();
+        match project.crop_gaussian_splat(
+            gaussian_splat_ref.asset_id,
+            crop,
+            &mut self.ids,
+            format!("{entity_id}-cropped"),
+        ) {
+            Ok(derived_id) => {
+                if let Some(manager) = self.scene_manager.as_mut() {
+                    let _ = manager.apply(Transaction::new(
+                        self.ids.next_transaction_id(),
+                        vec![SceneOperation::SetGaussianSplatRef {
+                            entity_id,
+                            gaussian_splat_ref: GaussianSplatRef {
+                                asset_id: derived_id,
+                                opacity_scale: gaussian_splat_ref.opacity_scale,
+                                size_scale: gaussian_splat_ref.size_scale,
+                                crop_filter: None,
+                            },
+                        }],
+                    ));
+                }
+                self.splat_cache.invalidate_all();
+                self.sync_runtime();
+                if let Some(project) = self.project.as_ref() {
+                    let _ = project.save();
+                }
+                tracing::info!("created derived cropped gaussian splat {derived_id}");
+            }
+            Err(err) => tracing::error!("crop gaussian splat failed: {err}"),
         }
     }
 
@@ -908,6 +1171,7 @@ impl DesktopApp {
                 }],
             ));
             self.point_cloud_cache.invalidate_all();
+            self.splat_cache.invalidate_all();
             self.sync_runtime();
         }
     }
@@ -931,6 +1195,7 @@ impl DesktopApp {
                 }],
             ));
             self.point_cloud_cache.invalidate_all();
+            self.splat_cache.invalidate_all();
             self.sync_runtime();
         }
     }
@@ -970,6 +1235,7 @@ impl DesktopApp {
                     ));
                 }
                 self.point_cloud_cache.invalidate_all();
+                self.splat_cache.invalidate_all();
                 self.sync_runtime();
                 if let Some(project) = self.project.as_ref() {
                     let _ = project.save();
@@ -989,7 +1255,7 @@ impl DesktopApp {
         let egui_ctx = self.egui_ctx.clone().expect("egui ctx");
         let mut egui_winit = self.egui_winit.take().expect("egui winit");
         let viewport_texture = self.viewport_texture.expect("viewport texture");
-        let mut import_path = None;
+        let mut import_request = None;
         let mut next_viewport_extent = self.viewport_extent;
 
         if self.viewport_extent.width > 1 && self.viewport_extent.height > 1 {
@@ -1009,13 +1275,14 @@ impl DesktopApp {
                 project.assets(),
                 &mut self.mesh_cache,
                 &mut self.point_cloud_cache,
+                &mut self.splat_cache,
                 self.shading_mode,
             );
         }
 
         let raw_input = egui_winit.take_egui_input(&window);
         let full_output = egui_ctx.run(raw_input, |ctx| {
-            import_path = self.handle_shortcuts(ctx);
+            import_request = self.handle_shortcuts(ctx);
 
             egui::SidePanel::left("hierarchy")
                 .default_width(220.0)
@@ -1034,14 +1301,22 @@ impl DesktopApp {
                 ));
                 ui.separator();
                 if ui.button("Import GLB").clicked() {
-                    import_path = rfd::FileDialog::new()
+                    import_request = rfd::FileDialog::new()
                         .add_filter("glTF", &["gltf", "glb"])
-                        .pick_file();
+                        .pick_file()
+                        .map(ImportRequest::Glb);
                 }
                 if ui.button("Import PLY").clicked() {
-                    import_path = rfd::FileDialog::new()
+                    import_request = rfd::FileDialog::new()
                         .add_filter("PLY", &["ply"])
-                        .pick_file();
+                        .pick_file()
+                        .map(ImportRequest::AutoPly);
+                }
+                if ui.button("Import 3DGS").clicked() {
+                    import_request = rfd::FileDialog::new()
+                        .add_filter("3DGS PLY", &["ply"])
+                        .pick_file()
+                        .map(ImportRequest::GsplatPly);
                 }
                 if ui.button("Undo").clicked() {
                     self.undo();
@@ -1161,16 +1436,8 @@ impl DesktopApp {
         backend.submit([encoder.finish()]);
         surface_frame.present();
 
-        if let Some(path) = import_path {
-            if path
-                .extension()
-                .and_then(|value| value.to_str())
-                .is_some_and(|value| value.eq_ignore_ascii_case("ply"))
-            {
-                self.import_ply(path);
-            } else {
-                self.import_glb(path);
-            }
+        if let Some(request) = import_request {
+            self.dispatch_import(request);
         }
 
         self.egui_winit = Some(egui_winit);

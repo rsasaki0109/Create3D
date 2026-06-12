@@ -1,6 +1,8 @@
 use c3d_core::version::C3D_SCENE_SCHEMA_CURRENT;
 use c3d_core::EntityId;
-use c3d_scene_schema::{MaterialBinding, MeshRef, Name, PointCloudRef, Transform};
+use c3d_scene_schema::{
+    GaussianSplatRef, MaterialBinding, MeshRef, Name, PointCloudRef, Transform,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::entity::Entity;
@@ -36,6 +38,9 @@ pub struct SceneEntityRecord {
     /// Optional point cloud reference.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub point_cloud_ref: Option<PointCloudRef>,
+    /// Optional Gaussian splat reference.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gaussian_splat_ref: Option<GaussianSplatRef>,
 }
 
 impl SceneDocument {
@@ -51,6 +56,7 @@ impl SceneDocument {
                 mesh_ref: entity.mesh_ref.clone(),
                 material_binding: entity.material_binding.clone(),
                 point_cloud_ref: entity.point_cloud_ref.clone(),
+                gaussian_splat_ref: entity.gaussian_splat_ref.clone(),
             })
             .collect();
         entities.sort_by_key(|entity| entity.id);
@@ -82,6 +88,7 @@ impl SceneDocument {
                     mesh_ref: record.mesh_ref.clone(),
                     material_binding: record.material_binding.clone(),
                     point_cloud_ref: record.point_cloud_ref.clone(),
+                    gaussian_splat_ref: record.gaussian_splat_ref.clone(),
                 },
             );
         }
@@ -147,6 +154,28 @@ mod tests {
         scene
             .insert_entity(Entity::new(child_id), Some(parent_id))
             .expect("insert child");
+
+        let json = scene.to_json().expect("serialize scene");
+        let restored = SceneDoc::from_json(&json).expect("deserialize scene");
+        assert_eq!(scene, restored);
+    }
+
+    #[test]
+    fn gaussian_splat_ref_round_trip() {
+        let mut scene = SceneDoc::new();
+        let entity_id = EntityId::new();
+        let mut entity = Entity::new(entity_id);
+        entity.name = Some(c3d_scene_schema::Name::new("Splat"));
+        entity.gaussian_splat_ref = Some(GaussianSplatRef {
+            asset_id: c3d_core::AssetId::new(),
+            opacity_scale: 0.75,
+            size_scale: 1.25,
+            crop_filter: Some(c3d_scene_schema::PointCloudCropBox {
+                min: [-1.0, 0.0, -1.0],
+                max: [1.0, 2.0, 1.0],
+            }),
+        });
+        scene.insert_entity(entity, None).expect("insert entity");
 
         let json = scene.to_json().expect("serialize scene");
         let restored = SceneDoc::from_json(&json).expect("deserialize scene");

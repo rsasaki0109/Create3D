@@ -55,6 +55,7 @@ fn append_node_operations(
         mesh_ref,
         material_binding,
         point_cloud_ref: None,
+        gaussian_splat_ref: None,
     });
 
     for child in &node.children {

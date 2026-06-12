@@ -13,6 +13,8 @@ pub struct ImportReport {
     pub point_cloud_assets: Vec<AssetId>,
     /// Point cloud chunk payload assets inserted into AssetDB.
     pub chunk_assets: Vec<AssetId>,
+    /// Gaussian splat metadata assets inserted into AssetDB.
+    pub gaussian_splat_assets: Vec<AssetId>,
     /// Number of scene entities created.
     pub entity_count: usize,
 }
@@ -26,6 +28,7 @@ impl ImportReport {
             texture_assets: Vec::new(),
             point_cloud_assets: Vec::new(),
             chunk_assets: Vec::new(),
+            gaussian_splat_assets: Vec::new(),
             entity_count: 0,
         }
     }

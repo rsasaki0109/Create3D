@@ -1,0 +1,29 @@
+[package]
+name = "readme-preview"
+description = "Render README editor preview assets from the real viewport renderer"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "readme-preview"
+path = "src/main.rs"
+
+[dependencies]
+ab_glyph = "0.2"
+c3d-core.workspace = true
+c3d-ecs.workspace = true
+c3d-asset-db.workspace = true
+c3d-scene-schema.workspace = true
+c3d-import-ply.workspace = true
+c3d-asset-pointcloud.workspace = true
+c3d-scene-ops.workspace = true
+c3d-scene-doc.workspace = true
+c3d-rhi.workspace = true
+c3d-rhi-wgpu.workspace = true
+c3d-viewport.workspace = true
+gif = "0.13"
+image = { workspace = true, default-features = false, features = ["png"] }
+pollster.workspace = true

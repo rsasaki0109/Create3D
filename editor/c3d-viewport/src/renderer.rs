@@ -19,7 +19,9 @@ use crate::mode::ViewportShadingMode;
 use crate::point_cloud_cache::PointCloudGpuCache;
 use crate::shaders::{
     line_pipeline_desc, mesh_pipeline_desc, mesh_vertex_layout, point_pipeline_desc,
+    splat_pipeline_desc,
 };
+use crate::splat_cache::SplatGpuCache;
 
 /// Viewport renderer that draws grid, axes, and placeholder scene cubes.
 pub struct ViewportRenderer {
@@ -28,6 +30,7 @@ pub struct ViewportRenderer {
     line_pipeline: PipelineHandle,
     mesh_pipeline: PipelineHandle,
     point_pipeline: PipelineHandle,
+    splat_pipeline: PipelineHandle,
     grid_buffer: BufferHandle,
     axis_buffer: BufferHandle,
     cube_buffer: BufferHandle,
@@ -58,6 +61,8 @@ impl ViewportRenderer {
             .create_render_pipeline(mesh_pipeline_desc("viewport-mesh-pipeline", color_format))?;
         let point_pipeline = backend
             .create_render_pipeline(point_pipeline_desc("viewport-point-pipeline", color_format))?;
+        let splat_pipeline = backend
+            .create_render_pipeline(splat_pipeline_desc("viewport-splat-pipeline", color_format))?;
 
         let grid_vertices = grid_vertices(10, 1.0);
         let axis_vertices = axis_vertices();
@@ -114,6 +119,7 @@ impl ViewportRenderer {
             line_pipeline,
             mesh_pipeline,
             point_pipeline,
+            splat_pipeline,
             grid_buffer,
             axis_buffer,
             cube_buffer,
@@ -176,12 +182,15 @@ impl ViewportRenderer {
         assets: &AssetDb,
         mesh_cache: &mut MeshGpuCache,
         point_cloud_cache: &mut PointCloudGpuCache,
+        splat_cache: &mut SplatGpuCache,
         shading_mode: ViewportShadingMode,
     ) -> c3d_rhi::RhiResult<()> {
         let aspect = self.extent.width as f32 / self.extent.height.max(1) as f32;
+        let view = camera.view_matrix();
         let view_proj = camera.view_projection(aspect);
         let drawables = runtime.drawables();
         let point_cloud_drawables = runtime.point_cloud_drawables();
+        let gaussian_splat_drawables = runtime.gaussian_splat_drawables();
         let camera_position = camera.eye_position();
 
         for drawable in &drawables {
@@ -202,9 +211,23 @@ impl ViewportRenderer {
             point_cloud_batches.push((drawable.world, draws));
         }
 
+        let mut splat_batches = Vec::new();
+        for drawable in &gaussian_splat_drawables {
+            let draws = splat_cache.prepare(
+                backend,
+                assets,
+                drawable.gaussian_splat,
+                drawable.world,
+                view,
+                camera_position,
+            )?;
+            splat_batches.push((drawable.world, draws));
+        }
+
         let line_pipeline = self.line_pipeline;
         let mesh_pipeline = self.mesh_pipeline;
         let point_pipeline = self.point_pipeline;
+        let splat_pipeline = self.splat_pipeline;
         let grid_buffer = self.grid_buffer;
         let axis_buffer = self.axis_buffer;
         let cube_buffer = self.cube_buffer;
@@ -313,6 +336,17 @@ impl ViewportRenderer {
                     let mvp = view_proj * world;
                     backend.pass_set_transform(pass, to_uniform(mvp));
                     backend.pass_draw(pass, draw.vertex_count);
+                }
+            }
+
+            backend.pass_set_pipeline(pass, splat_pipeline);
+            for (world, draws) in splat_batches {
+                for draw in draws {
+                    backend.pass_set_vertex_buffer(pass, 0, draw.vertex_buffer);
+                    backend.pass_set_index_buffer(pass, draw.index_buffer, IndexFormat::Uint16);
+                    let mvp = view_proj * world;
+                    backend.pass_set_transform(pass, to_uniform(mvp));
+                    backend.pass_draw_indexed(pass, draw.index_count);
                 }
             }
         })

@@ -1,5 +1,7 @@
 use c3d_core::EntityId;
-use c3d_scene_schema::{MaterialBinding, MeshRef, Name, PointCloudRef, Transform};
+use c3d_scene_schema::{
+    GaussianSplatRef, MaterialBinding, MeshRef, Name, PointCloudRef, Transform,
+};
 use serde::{Deserialize, Serialize};
 
 /// Runtime entity stored in [`SceneDoc`](crate::SceneDoc).
@@ -21,6 +23,8 @@ pub struct Entity {
     pub material_binding: Option<MaterialBinding>,
     /// Optional point cloud reference.
     pub point_cloud_ref: Option<PointCloudRef>,
+    /// Optional Gaussian splat reference.
+    pub gaussian_splat_ref: Option<GaussianSplatRef>,
 }
 
 impl Entity {
@@ -35,6 +39,7 @@ impl Entity {
             mesh_ref: None,
             material_binding: None,
             point_cloud_ref: None,
+            gaussian_splat_ref: None,
         }
     }
 
@@ -48,6 +53,7 @@ impl Entity {
             mesh_ref: self.mesh_ref.clone(),
             material_binding: self.material_binding.clone(),
             point_cloud_ref: self.point_cloud_ref.clone(),
+            gaussian_splat_ref: self.gaussian_splat_ref.clone(),
         }
     }
 }
@@ -69,6 +75,8 @@ pub struct EntitySnapshot {
     pub material_binding: Option<MaterialBinding>,
     /// Point cloud reference at time of snapshot.
     pub point_cloud_ref: Option<PointCloudRef>,
+    /// Gaussian splat reference at time of snapshot.
+    pub gaussian_splat_ref: Option<GaussianSplatRef>,
 }
 
 impl EntitySnapshot {
@@ -83,6 +91,7 @@ impl EntitySnapshot {
             mesh_ref: self.mesh_ref,
             material_binding: self.material_binding,
             point_cloud_ref: self.point_cloud_ref,
+            gaussian_splat_ref: self.gaussian_splat_ref,
         }
     }
 }

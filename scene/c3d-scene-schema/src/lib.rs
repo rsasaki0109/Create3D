@@ -7,7 +7,7 @@ pub mod components;
 pub mod registry;
 
 pub use components::{
-    AnnotationPlaceholder, MaterialBinding, MeshRef, Name, PointCloudColorMode, PointCloudCropBox,
-    PointCloudRef, TopologyMode, Transform, TransformOp,
+    AnnotationPlaceholder, GaussianSplatRef, MaterialBinding, MeshRef, Name, PointCloudColorMode,
+    PointCloudCropBox, PointCloudRef, TopologyMode, Transform, TransformOp,
 };
 pub use registry::{ComponentSchemaVersion, SchemaError, SchemaRegistry};

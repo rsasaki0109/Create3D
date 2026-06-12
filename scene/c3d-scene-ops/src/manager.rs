@@ -116,6 +116,7 @@ mod tests {
                 mesh_ref: None,
                 material_binding: None,
                 point_cloud_ref: None,
+                gaussian_splat_ref: None,
             }],
         );
 

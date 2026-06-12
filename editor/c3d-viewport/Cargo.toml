@@ -13,6 +13,7 @@ c3d-asset-db.workspace = true
 c3d-asset-material.workspace = true
 c3d-asset-mesh.workspace = true
 c3d-asset-pointcloud.workspace = true
+c3d-asset-gsplat.workspace = true
 c3d-core.workspace = true
 c3d-ecs.workspace = true
 c3d-rhi.workspace = true

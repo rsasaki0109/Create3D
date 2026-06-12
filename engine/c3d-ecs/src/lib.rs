@@ -6,6 +6,10 @@ mod components;
 mod projection;
 
 pub use components::{
-    RenderMaterial, RenderMeshKind, RenderPointCloud, SceneEntity, SceneTransform,
+    RenderGaussianSplat, RenderMaterial, RenderMeshKind, RenderPointCloud, SceneEntity,
+    SceneTransform,
 };
-pub use projection::{project_scene_to_ecs, RuntimeWorld, SceneDrawable, ScenePointCloudDrawable};
+pub use projection::{
+    project_scene_to_ecs, RuntimeWorld, SceneDrawable, SceneGaussianSplatDrawable,
+    ScenePointCloudDrawable,
+};

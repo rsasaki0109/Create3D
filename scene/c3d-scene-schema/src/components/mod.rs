@@ -1,6 +1,7 @@
 //! Built-in component schemas.
 
 mod annotation;
+mod gaussian_splat_ref;
 mod material_binding;
 mod mesh_ref;
 mod name;
@@ -9,6 +10,7 @@ mod transform;
 
 pub use annotation::AnnotationPlaceholder;
 
+pub use gaussian_splat_ref::GaussianSplatRef;
 pub use material_binding::MaterialBinding;
 pub use mesh_ref::{MeshRef, TopologyMode};
 pub use name::Name;

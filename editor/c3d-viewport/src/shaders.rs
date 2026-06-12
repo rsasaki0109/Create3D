@@ -50,6 +50,7 @@ pub(crate) fn line_pipeline_desc<'a>(
         depth_write: true,
         topology: c3d_rhi::PrimitiveTopology::LineList,
         cull_back_faces: false,
+        alpha_blend: false,
     }
 }
 
@@ -67,6 +68,25 @@ pub(crate) fn point_pipeline_desc<'a>(
         depth_write: true,
         topology: c3d_rhi::PrimitiveTopology::PointList,
         cull_back_faces: false,
+        alpha_blend: false,
+    }
+}
+
+pub(crate) fn splat_pipeline_desc<'a>(
+    label: &'a str,
+    color_format: c3d_rhi::TextureFormat,
+) -> c3d_rhi::RenderPipelineDesc<'a> {
+    c3d_rhi::RenderPipelineDesc {
+        label,
+        vertex_shader: VERTEX_SHADER,
+        fragment_shader: FRAGMENT_SHADER,
+        vertex_layouts: vec![mesh_vertex_layout()],
+        color_format,
+        depth_format: Some(c3d_rhi::DepthStencilFormat::Depth24Plus),
+        depth_write: false,
+        topology: c3d_rhi::PrimitiveTopology::TriangleList,
+        cull_back_faces: false,
+        alpha_blend: true,
     }
 }
 
@@ -84,6 +104,7 @@ pub(crate) fn mesh_pipeline_desc<'a>(
         depth_write: true,
         topology: c3d_rhi::PrimitiveTopology::TriangleList,
         cull_back_faces: true,
+        alpha_blend: false,
     }
 }
 

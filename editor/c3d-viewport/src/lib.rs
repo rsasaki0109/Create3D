@@ -11,6 +11,7 @@ mod picking;
 mod point_cloud_cache;
 mod renderer;
 mod shaders;
+mod splat_cache;
 
 pub use camera::OrbitCamera;
 pub use gizmo::{gizmo_drag_delta, pick_gizmo_axis, GizmoAxis, GizmoDragState};
@@ -19,3 +20,4 @@ pub use mode::ViewportShadingMode;
 pub use picking::{pick_entity, PickHit};
 pub use point_cloud_cache::{CachedPointCloudDraw, PointCloudGpuCache};
 pub use renderer::ViewportRenderer;
+pub use splat_cache::{CachedSplatDraw, SplatGpuCache};

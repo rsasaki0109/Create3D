@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use c3d_core::version::C3D_SCENE_SCHEMA_CURRENT;
 use c3d_core::EntityId;
-use c3d_scene_schema::{MaterialBinding, MeshRef, Name, PointCloudRef, SchemaRegistry, Transform};
+use c3d_scene_schema::{
+    GaussianSplatRef, MaterialBinding, MeshRef, Name, PointCloudRef, SchemaRegistry, Transform,
+};
 
 use crate::entity::{Entity, EntitySnapshot};
 use crate::error::{SceneError, SceneResult};
@@ -179,6 +181,21 @@ impl SceneDoc {
         Ok(before)
     }
 
+    /// Set Gaussian splat reference placeholder component.
+    pub fn set_gaussian_splat_ref(
+        &mut self,
+        entity_id: EntityId,
+        gaussian_splat_ref: GaussianSplatRef,
+    ) -> SceneResult<Option<GaussianSplatRef>> {
+        let entity = self
+            .entities
+            .get_mut(&entity_id)
+            .ok_or(SceneError::EntityNotFound(entity_id))?;
+        let before = entity.gaussian_splat_ref.clone();
+        entity.gaussian_splat_ref = Some(gaussian_splat_ref);
+        Ok(before)
+    }
+
     /// Restore the name component to a previous value.
     pub fn restore_name(
         &mut self,
@@ -236,6 +253,21 @@ impl SceneDoc {
             .ok_or(SceneError::EntityNotFound(entity_id))?;
         let before = entity.point_cloud_ref.clone();
         entity.point_cloud_ref = point_cloud_ref;
+        Ok(before)
+    }
+
+    /// Restore the Gaussian splat reference component to a previous value.
+    pub fn restore_gaussian_splat_ref(
+        &mut self,
+        entity_id: EntityId,
+        gaussian_splat_ref: Option<GaussianSplatRef>,
+    ) -> SceneResult<Option<GaussianSplatRef>> {
+        let entity = self
+            .entities
+            .get_mut(&entity_id)
+            .ok_or(SceneError::EntityNotFound(entity_id))?;
+        let before = entity.gaussian_splat_ref.clone();
+        entity.gaussian_splat_ref = gaussian_splat_ref;
         Ok(before)
     }
 

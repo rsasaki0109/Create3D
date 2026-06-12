@@ -4,8 +4,8 @@ use c3d_core::EntityId;
 use c3d_scene_doc::SceneDoc;
 
 use crate::components::{
-    world_affine_from_scene, RenderMaterial, RenderMeshKind, RenderPointCloud, SceneEntity,
-    SceneTransform,
+    world_affine_from_scene, RenderGaussianSplat, RenderMaterial, RenderMeshKind, RenderPointCloud,
+    SceneEntity, SceneTransform,
 };
 
 /// ECS world used by editor runtime systems.
@@ -37,6 +37,17 @@ pub struct ScenePointCloudDrawable {
     pub world: Mat4,
     /// Point cloud render parameters.
     pub point_cloud: RenderPointCloud,
+}
+
+/// Drawable Gaussian splat instance extracted from the runtime ECS world.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SceneGaussianSplatDrawable {
+    /// Authoritative scene entity id.
+    pub entity_id: EntityId,
+    /// World transform matrix.
+    pub world: Mat4,
+    /// Gaussian splat render parameters.
+    pub gaussian_splat: RenderGaussianSplat,
 }
 
 impl RuntimeWorld {
@@ -95,6 +106,23 @@ impl RuntimeWorld {
             )
             .collect()
     }
+
+    /// Collect drawable Gaussian splat instances from the runtime ECS world.
+    pub fn gaussian_splat_drawables(&mut self) -> Vec<SceneGaussianSplatDrawable> {
+        let mut query = self
+            .world
+            .query::<(Entity, &SceneEntity, &SceneTransform, &RenderGaussianSplat)>();
+        query
+            .iter(&self.world)
+            .map(
+                |(_entity, scene_entity, transform, gaussian_splat)| SceneGaussianSplatDrawable {
+                    entity_id: scene_entity.id,
+                    world: transform.world,
+                    gaussian_splat: *gaussian_splat,
+                },
+            )
+            .collect()
+    }
 }
 
 /// Synchronize SceneDB entities into the runtime ECS world.
@@ -109,16 +137,27 @@ pub fn project_scene_to_ecs(scene: &SceneDoc, runtime: &mut RuntimeWorld) {
         if let Some(ecs_entity) = find_ecs_entity(&mut runtime.world, entity.id) {
             let mut entity_mut = runtime.world.entity_mut(ecs_entity);
             entity_mut.insert(world);
-
-            if let Some(point_cloud_ref) = entity.point_cloud_ref.as_ref() {
+            if let Some(gaussian_splat_ref) = entity.gaussian_splat_ref.as_ref() {
+                entity_mut.insert(RenderGaussianSplat {
+                    asset_id: gaussian_splat_ref.asset_id,
+                    opacity_scale: gaussian_splat_ref.opacity_scale,
+                    size_scale: gaussian_splat_ref.size_scale,
+                    crop_filter: gaussian_splat_ref.crop_filter,
+                });
+                entity_mut.remove::<RenderPointCloud>();
+                entity_mut.remove::<RenderMeshKind>();
+                entity_mut.remove::<RenderMaterial>();
+            } else if let Some(point_cloud_ref) = entity.point_cloud_ref.as_ref() {
                 entity_mut.insert(RenderPointCloud {
                     asset_id: point_cloud_ref.asset_id,
                     color_mode: point_cloud_ref.color_mode,
                     crop_filter: point_cloud_ref.crop_filter,
                 });
+                entity_mut.remove::<RenderGaussianSplat>();
                 entity_mut.remove::<RenderMeshKind>();
                 entity_mut.remove::<RenderMaterial>();
             } else {
+                entity_mut.remove::<RenderGaussianSplat>();
                 entity_mut.remove::<RenderPointCloud>();
                 let mesh_kind = entity
                     .mesh_ref
@@ -134,6 +173,17 @@ pub fn project_scene_to_ecs(scene: &SceneDoc, runtime: &mut RuntimeWorld) {
                     entity_mut.remove::<RenderMaterial>();
                 }
             }
+        } else if let Some(gaussian_splat_ref) = entity.gaussian_splat_ref.as_ref() {
+            runtime.world.spawn((
+                SceneEntity { id: entity.id },
+                world,
+                RenderGaussianSplat {
+                    asset_id: gaussian_splat_ref.asset_id,
+                    opacity_scale: gaussian_splat_ref.opacity_scale,
+                    size_scale: gaussian_splat_ref.size_scale,
+                    crop_filter: gaussian_splat_ref.crop_filter,
+                },
+            ));
         } else if let Some(point_cloud_ref) = entity.point_cloud_ref.as_ref() {
             runtime.world.spawn((
                 SceneEntity { id: entity.id },
@@ -189,7 +239,7 @@ fn despawn_missing(world: &mut World, keep: &[EntityId]) {
 mod tests {
     use super::*;
     use c3d_scene_doc::Entity;
-    use c3d_scene_schema::PointCloudRef;
+    use c3d_scene_schema::{GaussianSplatRef, PointCloudRef};
 
     #[test]
     fn projection_spawns_scene_entities() {
@@ -219,5 +269,20 @@ mod tests {
 
         assert!(runtime.drawables().is_empty());
         assert_eq!(runtime.point_cloud_drawables().len(), 1);
+    }
+
+    #[test]
+    fn gaussian_splat_entities_skip_default_cube() {
+        let mut scene = SceneDoc::new();
+        let entity_id = EntityId::new();
+        let mut entity = Entity::new(entity_id);
+        entity.gaussian_splat_ref = Some(GaussianSplatRef::new(c3d_core::AssetId::new()));
+        scene.insert_entity(entity, None).expect("insert entity");
+
+        let mut runtime = RuntimeWorld::new();
+        project_scene_to_ecs(&scene, &mut runtime);
+
+        assert!(runtime.drawables().is_empty());
+        assert_eq!(runtime.gaussian_splat_drawables().len(), 1);
     }
 }

@@ -16,6 +16,7 @@ pub fn apply_operation(
             mesh_ref,
             material_binding,
             point_cloud_ref,
+            gaussian_splat_ref,
         } => {
             let mut entity = Entity::new(*entity_id);
             entity.transform = *transform;
@@ -23,6 +24,7 @@ pub fn apply_operation(
             entity.mesh_ref = mesh_ref.clone();
             entity.material_binding = material_binding.clone();
             entity.point_cloud_ref = point_cloud_ref.clone();
+            entity.gaussian_splat_ref = gaussian_splat_ref.clone();
             scene.insert_entity(entity, *parent)?;
             let snapshot = scene.get(*entity_id).expect("entity inserted").snapshot();
             Ok(SceneOperation::DeleteEntity { snapshot })
@@ -37,6 +39,7 @@ pub fn apply_operation(
                 mesh_ref: removed.mesh_ref,
                 material_binding: removed.material_binding,
                 point_cloud_ref: removed.point_cloud_ref,
+                gaussian_splat_ref: removed.gaussian_splat_ref,
             })
         }
         SceneOperation::SetTransform {
@@ -136,6 +139,27 @@ pub fn apply_operation(
                 point_cloud_ref: before,
             })
         }
+        SceneOperation::SetGaussianSplatRef {
+            entity_id,
+            gaussian_splat_ref,
+        } => {
+            let before = scene.set_gaussian_splat_ref(*entity_id, gaussian_splat_ref.clone())?;
+            Ok(SceneOperation::RestoreGaussianSplatRef {
+                entity_id: *entity_id,
+                gaussian_splat_ref: before,
+            })
+        }
+        SceneOperation::RestoreGaussianSplatRef {
+            entity_id,
+            gaussian_splat_ref,
+        } => {
+            let before =
+                scene.restore_gaussian_splat_ref(*entity_id, gaussian_splat_ref.clone())?;
+            Ok(SceneOperation::RestoreGaussianSplatRef {
+                entity_id: *entity_id,
+                gaussian_splat_ref: before,
+            })
+        }
     }
 }
 
@@ -173,6 +197,7 @@ mod tests {
                 mesh_ref: None,
                 material_binding: None,
                 point_cloud_ref: None,
+                gaussian_splat_ref: None,
             },
         )
         .expect("apply create");

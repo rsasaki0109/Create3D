@@ -672,6 +672,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "c3d-asset-gsplat"
+version = "0.1.0"
+dependencies = [
+ "c3d-asset-db",
+ "c3d-core",
+ "c3d-scene-schema",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "c3d-asset-material"
 version = "0.1.0"
 dependencies = [
@@ -750,6 +762,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "c3d-import-gsplat"
+version = "0.1.0"
+dependencies = [
+ "c3d-asset-gsplat",
+ "c3d-core",
+ "serde",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "c3d-import-ply"
 version = "0.1.0"
 dependencies = [
@@ -773,11 +795,13 @@ name = "c3d-project"
 version = "0.1.0"
 dependencies = [
  "c3d-asset-db",
+ "c3d-asset-gsplat",
  "c3d-asset-material",
  "c3d-asset-mesh",
  "c3d-asset-pointcloud",
  "c3d-core",
  "c3d-import-gltf",
+ "c3d-import-gsplat",
  "c3d-import-ply",
  "c3d-mesh-authoring",
  "c3d-scene-doc",
@@ -847,6 +871,7 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "c3d-asset-db",
+ "c3d-asset-gsplat",
  "c3d-asset-material",
  "c3d-asset-mesh",
  "c3d-asset-pointcloud",
@@ -996,6 +1021,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "color_quant"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
+
+[[package]]
 name = "colorchoice"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1115,6 +1146,7 @@ dependencies = [
  "c3d-core",
  "c3d-ecs",
  "c3d-editor-core",
+ "c3d-import-gsplat",
  "c3d-mesh-authoring",
  "c3d-project",
  "c3d-rhi",
@@ -1622,6 +1654,16 @@ dependencies = [
  "r-efi 6.0.0",
  "wasip2",
  "wasip3",
+]
+
+[[package]]
+name = "gif"
+version = "0.13.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ae047235e33e2829703574b54fdec96bfbad892062d97fed2f76022287de61b"
+dependencies = [
+ "color_quant",
+ "weezl",
 ]
 
 [[package]]
@@ -2979,6 +3021,27 @@ name = "raw-window-handle"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "20675572f6f24e9e76ef639bc5552774ed45f1c30e2951e1e99c59888861c539"
+
+[[package]]
+name = "readme-preview"
+version = "0.1.0"
+dependencies = [
+ "ab_glyph",
+ "c3d-asset-db",
+ "c3d-asset-pointcloud",
+ "c3d-core",
+ "c3d-ecs",
+ "c3d-import-ply",
+ "c3d-rhi",
+ "c3d-rhi-wgpu",
+ "c3d-scene-doc",
+ "c3d-scene-ops",
+ "c3d-scene-schema",
+ "c3d-viewport",
+ "gif",
+ "image",
+ "pollster",
+]
 
 [[package]]
 name = "redox_syscall"

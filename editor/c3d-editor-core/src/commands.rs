@@ -41,8 +41,18 @@ impl CommandRegistry {
                     shortcut: None,
                 },
                 EditorCommand {
+                    id: "scene.import_gsplat",
+                    label: "Import 3DGS PLY",
+                    shortcut: None,
+                },
+                EditorCommand {
                     id: "pointcloud.crop_derived",
                     label: "Crop Point Cloud To Derived Asset",
+                    shortcut: None,
+                },
+                EditorCommand {
+                    id: "gsplat.crop_derived",
+                    label: "Crop Gaussian Splat To Derived Asset",
                     shortcut: None,
                 },
                 EditorCommand {

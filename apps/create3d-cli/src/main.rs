@@ -39,6 +39,18 @@ enum Command {
         #[arg(long, default_value = "imported-pointcloud")]
         name: String,
     },
+    /// Import a 3D Gaussian splat PLY file into a new or existing project.
+    ImportGsplat {
+        /// 3DGS PLY source file.
+        #[arg(long)]
+        input: PathBuf,
+        /// Project output directory.
+        #[arg(long)]
+        output: PathBuf,
+        /// Project name when creating a new project.
+        #[arg(long, default_value = "imported-gsplat")]
+        name: String,
+    },
 }
 
 fn main() {
@@ -63,6 +75,11 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             output,
             name,
         } => import_ply(input, output, name),
+        Command::ImportGsplat {
+            input,
+            output,
+            name,
+        } => import_gsplat(input, output, name),
     }
 }
 
@@ -102,6 +119,27 @@ fn import_ply(
     println!(
         "Imported point cloud with {} points in {} chunks into {} (entity {})",
         report.point_count,
+        report.chunk_assets.len(),
+        output.display(),
+        report.entity_id
+    );
+    Ok(())
+}
+
+fn import_gsplat(
+    input: PathBuf,
+    output: PathBuf,
+    name: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut ids = UlidGenerator::new();
+    let mut project = open_or_create_project(&output, name)?;
+
+    let report = project.import_gsplat_ply(&input, &mut ids)?;
+    project.save()?;
+
+    println!(
+        "Imported gaussian splats with {} splats in {} chunks into {} (entity {})",
+        report.splat_count,
         report.chunk_assets.len(),
         output.display(),
         report.entity_id

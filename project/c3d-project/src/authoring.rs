@@ -121,6 +121,7 @@ impl Project {
                 mesh_ref: Some(MeshRef::new(mesh_id)),
                 material_binding: Some(MaterialBinding::new(material_id)),
                 point_cloud_ref: None,
+                gaussian_splat_ref: None,
             }],
         )?;
 

@@ -1,6 +1,8 @@
 use c3d_core::EntityId;
 use c3d_scene_doc::EntitySnapshot;
-use c3d_scene_schema::{MaterialBinding, MeshRef, Name, PointCloudRef, Transform, TransformOp};
+use c3d_scene_schema::{
+    GaussianSplatRef, MaterialBinding, MeshRef, Name, PointCloudRef, Transform, TransformOp,
+};
 use serde::{Deserialize, Serialize};
 
 /// Typed scene mutation.
@@ -25,6 +27,9 @@ pub enum SceneOperation {
         /// Optional point cloud reference component.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         point_cloud_ref: Option<PointCloudRef>,
+        /// Optional Gaussian splat reference component.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        gaussian_splat_ref: Option<GaussianSplatRef>,
     },
     /// Delete an existing entity.
     DeleteEntity {
@@ -100,5 +105,19 @@ pub enum SceneOperation {
         entity_id: EntityId,
         /// Previous point cloud reference value.
         point_cloud_ref: Option<PointCloudRef>,
+    },
+    /// Set Gaussian splat reference placeholder component.
+    SetGaussianSplatRef {
+        /// Target entity.
+        entity_id: EntityId,
+        /// Gaussian splat reference value.
+        gaussian_splat_ref: GaussianSplatRef,
+    },
+    /// Restore a previous Gaussian splat reference, or clear it when `None`.
+    RestoreGaussianSplatRef {
+        /// Target entity.
+        entity_id: EntityId,
+        /// Previous Gaussian splat reference value.
+        gaussian_splat_ref: Option<GaussianSplatRef>,
     },
 }

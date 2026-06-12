@@ -1,8 +1,10 @@
 # Create3D
 
+![Create3D editor preview — point cloud viewport orbit](docs/assets/editor-preview.gif)
+
 Create3D is an AI-native, GPU-native, cloud-native 3D creation platform built in Rust.
 
-This repository is in **Month 7** phase: point cloud assets, PLY import, chunked LOD residency, viewport point rendering, and crop tools.
+This repository is in **Month 8** phase: Gaussian splat assets, 3DGS PLY import, chunked residency, viewport splat rendering, and crop/scale tools.
 
 ## Architecture
 
@@ -27,13 +29,15 @@ cargo run -p xtask -- check
 cargo run -p create3d-desktop
 ```
 
-The window includes Month 5/6 interaction tools plus Month 7 point cloud features:
+The window includes Month 5/6 interaction tools plus Month 7 point cloud and Month 8 Gaussian splat features:
 
-- **Import PLY**: toolbar button or command palette (`Import PLY Point Cloud`)
+- **Import PLY**: toolbar button or command palette (`Import PLY Point Cloud`); auto-detects 3DGS PLY when using the generic PLY button
+- **Import 3DGS PLY**: toolbar button or command palette (`Import 3DGS PLY`)
 - **Point cloud viewport**: chunked GPU upload with residency (only nearby chunks are uploaded)
-- **Color modes**: RGB, Intensity, Classification
-- **Crop filter**: scene-level crop box in the inspector
-- **Derived crop asset**: create a cropped point cloud asset from the selection
+- **Gaussian splat viewport**: alpha-blended splat quads with opacity/size scales and crop filters
+- **Color modes**: RGB, Intensity, Classification (point clouds)
+- **Crop filter**: scene-level crop box in the inspector (point clouds and Gaussian splats)
+- **Derived crop asset**: create a cropped asset from the selection
 - **Create primitives / shading / material inspector / thumbnails** from Month 6
 - **Hierarchy / Inspector / Gizmo / Command palette** from Month 5
 
@@ -57,6 +61,15 @@ cargo run -p create3d-cli -- import-ply \
   --input /path/to/cloud.ply \
   --output /path/to/project.c3d \
   --name my-pointcloud
+```
+
+Import a 3D Gaussian splat PLY:
+
+```bash
+cargo run -p create3d-cli -- import-gsplat \
+  --input /path/to/splat.ply \
+  --output /path/to/project.c3d \
+  --name my-gsplat
 ```
 
 Project layout:
@@ -84,7 +97,9 @@ Create3D/
 │   ├── c3d-asset-mesh/     # mesh asset blobs
 │   ├── c3d-asset-material/ # basic PBR material blobs + material graph
 │   ├── c3d-asset-pointcloud/ # point cloud metadata + chunk payloads + residency
+│   ├── c3d-asset-gsplat/   # Gaussian splat metadata + chunk payloads + residency
 │   ├── c3d-import-ply/     # ASCII PLY import + spatial chunking
+│   ├── c3d-import-gsplat/  # ASCII 3DGS PLY import + spatial chunking
 │   ├── c3d-mesh-authoring/ # primitives, topology validation, thumbnails
 │   └── c3d-import-gltf/    # glTF/GLB importer
 ├── project/c3d-project/   # manifest + scene + AssetDB persistence
@@ -98,10 +113,12 @@ Create3D/
 │   ├── c3d-editor-core/     # selection state + command registry
 │   └── c3d-viewport/        # orbit camera, picking, gizmo, mesh + point rendering
 ├── scene/
-│   ├── c3d-scene-schema/    # Transform, Name, MeshRef, MaterialBinding, PointCloudRef
+│   ├── c3d-scene-schema/    # Transform, Name, MeshRef, MaterialBinding, PointCloudRef, GaussianSplatRef
 │   ├── c3d-scene-doc/       # SceneDB document + serialization
 │   └── c3d-scene-ops/       # operations, transactions, undo/redo
-├── tools/xtask/             # fmt/clippy/test helper
+├── tools/
+│   ├── xtask/               # fmt/clippy/test helper
+│   └── readme-preview/      # offscreen viewport capture for README assets
 ├── tests/golden-scenes/     # golden replay harness
 └── docs/                    # architecture, RFCs, guides
 ```

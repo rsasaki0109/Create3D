@@ -1,149 +1,146 @@
 use c3d_asset_db::AssetKind;
-use c3d_asset_pointcloud::{PointCloudAsset, PointCloudAssetData, PointCloudChunkPayload};
+use c3d_asset_gsplat::{GaussianSplatAsset, GaussianSplatAssetData, GaussianSplatChunkPayload};
 use c3d_core::{AssetId, EntityId, UlidGenerator};
-use c3d_import_ply::PlyImportResult;
+use c3d_import_gsplat::GsplatImportResult;
 use c3d_scene_ops::{apply_operations, SceneOperation};
-use c3d_scene_schema::{Name, PointCloudCropBox, PointCloudRef, Transform};
+use c3d_scene_schema::{GaussianSplatRef, Name, PointCloudCropBox, Transform};
 
 use crate::error::{ProjectError, ProjectResult};
 use crate::import::ImportReport;
 use crate::Project;
 
-/// Result of importing a point cloud into the project.
+/// Result of importing a Gaussian splat cloud into the project.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PointCloudImportReport {
+pub struct GaussianSplatImportReport {
     /// Metadata asset id stored in AssetDB.
     pub asset_id: AssetId,
-    /// Scene entity referencing the point cloud.
+    /// Scene entity referencing the splat asset.
     pub entity_id: EntityId,
     /// Chunk payload assets written to AssetDB.
     pub chunk_assets: Vec<AssetId>,
-    /// Total point count across all chunks.
-    pub point_count: u64,
+    /// Total splat count across all chunks.
+    pub splat_count: u64,
 }
 
 impl Project {
-    /// Import a PLY point cloud file into the project and create a scene entity.
-    pub fn import_ply(
+    /// Import a 3D Gaussian splat PLY file into the project and create a scene entity.
+    pub fn import_gsplat_ply(
         &mut self,
         path: impl AsRef<std::path::Path>,
         ids: &mut UlidGenerator,
-    ) -> ProjectResult<PointCloudImportReport> {
-        let imported = c3d_import_ply::import_ply_path(path.as_ref())
-            .map_err(ProjectError::PointCloudImport)?;
-        self.store_ply_import(imported, ids)
+    ) -> ProjectResult<GaussianSplatImportReport> {
+        let imported = c3d_import_gsplat::import_gsplat_ply_path(path.as_ref())
+            .map_err(ProjectError::GaussianSplatImport)?;
+        self.store_gsplat_import(imported, ids)
     }
 
-    /// Import a synthetic point cloud for performance/residency testing.
-    pub fn import_synthetic_point_cloud(
+    /// Import a synthetic Gaussian splat cloud for performance/residency testing.
+    pub fn import_synthetic_gaussian_splats(
         &mut self,
-        point_count: usize,
+        splat_count: usize,
         ids: &mut UlidGenerator,
-    ) -> ProjectResult<PointCloudImportReport> {
-        let imported = c3d_import_ply::generate_synthetic_point_cloud(point_count, 8_192)
-            .map_err(ProjectError::PointCloudImport)?;
-        self.store_ply_import(imported, ids)
+    ) -> ProjectResult<GaussianSplatImportReport> {
+        let imported = c3d_import_gsplat::generate_synthetic_gaussian_splats(splat_count, 4_096)
+            .map_err(ProjectError::GaussianSplatImport)?;
+        self.store_gsplat_import(imported, ids)
     }
 
-    /// Read and decode a point cloud metadata asset.
-    pub fn point_cloud_asset(&self, asset_id: AssetId) -> ProjectResult<PointCloudAssetData> {
+    /// Read and decode a Gaussian splat metadata asset.
+    pub fn gaussian_splat_asset(&self, asset_id: AssetId) -> ProjectResult<GaussianSplatAssetData> {
         let bytes = self.assets().read_blob(asset_id)?;
-        PointCloudAsset::decode(&bytes).map_err(|err| ProjectError::PointCloud(err.to_string()))
+        GaussianSplatAsset::decode(&bytes)
+            .map_err(|err| ProjectError::GaussianSplat(err.to_string()))
     }
 
-    /// Create a derived point cloud asset by cropping an existing asset.
-    pub fn crop_point_cloud(
+    /// Create a derived Gaussian splat asset by cropping an existing asset.
+    pub fn crop_gaussian_splat(
         &mut self,
         source_asset_id: AssetId,
         crop: PointCloudCropBox,
         ids: &mut UlidGenerator,
         name: impl Into<String>,
     ) -> ProjectResult<AssetId> {
-        let source = self.point_cloud_asset(source_asset_id)?;
+        let source = self.gaussian_splat_asset(source_asset_id)?;
         let name = name.into();
 
-        let mut chunks = Vec::new();
         let mut records = Vec::new();
         let mut point_count = 0u64;
 
         for record in &source.chunks {
             let bytes = self.assets().read_blob(record.blob_asset_id)?;
-            let payload = PointCloudChunkPayload::from_bytes(&bytes)
-                .map_err(|err| ProjectError::PointCloud(err.to_string()))?;
+            let payload = GaussianSplatChunkPayload::from_bytes(&bytes)
+                .map_err(|err| ProjectError::GaussianSplat(err.to_string()))?;
             let cropped = payload.crop(&crop);
-            if cropped.point_count() == 0 {
+            if cropped.splat_count() == 0 {
                 continue;
             }
 
             let chunk_bytes = cropped
                 .to_bytes()
-                .map_err(|err| ProjectError::PointCloud(err.to_string()))?;
+                .map_err(|err| ProjectError::GaussianSplat(err.to_string()))?;
             let chunk_id = ids.next_asset_id();
             self.assets_mut().insert(
                 chunk_id,
-                AssetKind::PointCloudChunk,
+                AssetKind::GaussianSplatChunk,
                 format!("{name}-chunk-{}", records.len()),
                 &chunk_bytes,
                 Some("application/json".into()),
             )?;
 
             let (bounds_min, bounds_max) = payload_bounds(&cropped);
-            records.push(c3d_asset_pointcloud::PointCloudChunkRecord {
+            records.push(c3d_asset_gsplat::GaussianSplatChunkRecord {
                 chunk_id: records.len() as u32,
                 bounds_min,
                 bounds_max,
-                point_count: cropped.point_count() as u32,
+                splat_count: cropped.splat_count() as u32,
                 blob_asset_id: chunk_id,
                 lod_stride: record.lod_stride,
             });
-            point_count += cropped.point_count() as u64;
-            chunks.push(chunk_id);
+            point_count += cropped.splat_count() as u64;
         }
 
         if records.is_empty() {
-            return Err(ProjectError::PointCloud("crop removed all points".into()));
+            return Err(ProjectError::GaussianSplat(
+                "crop removed all splats".into(),
+            ));
         }
 
         let (bounds_min, bounds_max) = metadata_bounds(&records);
-        let metadata = PointCloudAssetData {
+        let metadata = GaussianSplatAssetData {
             version: 1,
-            point_count,
+            splat_count: point_count,
             bounds_min,
             bounds_max,
-            has_rgb: source.has_rgb,
-            has_intensity: source.has_intensity,
-            has_classification: source.has_classification,
+            sh_degree: source.sh_degree,
             chunks: records,
         };
-        let metadata_bytes = PointCloudAsset::encode(&metadata)
-            .map_err(|err| ProjectError::PointCloud(err.to_string()))?;
+        let metadata_bytes = GaussianSplatAsset::encode(&metadata)
+            .map_err(|err| ProjectError::GaussianSplat(err.to_string()))?;
         let asset_id = ids.next_asset_id();
         self.assets_mut().insert(
             asset_id,
-            AssetKind::PointCloud,
+            AssetKind::GaussianSplat,
             name,
             &metadata_bytes,
             Some("application/json".into()),
         )?;
-
-        let _ = chunks;
         Ok(asset_id)
     }
 
-    fn store_ply_import(
+    pub(crate) fn store_gsplat_import(
         &mut self,
-        mut imported: PlyImportResult,
+        mut imported: GsplatImportResult,
         ids: &mut UlidGenerator,
-    ) -> ProjectResult<PointCloudImportReport> {
+    ) -> ProjectResult<GaussianSplatImportReport> {
         let mut chunk_assets = Vec::with_capacity(imported.chunks.len());
         for (index, chunk) in imported.chunks.iter().enumerate() {
             let bytes = chunk
                 .to_bytes()
-                .map_err(|err| ProjectError::PointCloud(err.to_string()))?;
+                .map_err(|err| ProjectError::GaussianSplat(err.to_string()))?;
             let chunk_id = ids.next_asset_id();
             self.assets_mut().insert(
                 chunk_id,
-                AssetKind::PointCloudChunk,
+                AssetKind::GaussianSplatChunk,
                 format!("{}-chunk-{index}", imported.name),
                 &bytes,
                 Some("application/json".into()),
@@ -152,12 +149,12 @@ impl Project {
             imported.metadata.chunks[index].blob_asset_id = chunk_id;
         }
 
-        let metadata_bytes = PointCloudAsset::encode(&imported.metadata)
-            .map_err(|err| ProjectError::PointCloud(err.to_string()))?;
+        let metadata_bytes = GaussianSplatAsset::encode(&imported.metadata)
+            .map_err(|err| ProjectError::GaussianSplat(err.to_string()))?;
         let asset_id = ids.next_asset_id();
         self.assets_mut().insert(
             asset_id,
-            AssetKind::PointCloud,
+            AssetKind::GaussianSplat,
             imported.name.clone(),
             &metadata_bytes,
             Some("application/json".into()),
@@ -173,36 +170,36 @@ impl Project {
                 transform: Transform::IDENTITY,
                 mesh_ref: None,
                 material_binding: None,
-                point_cloud_ref: Some(PointCloudRef::new(asset_id)),
-                gaussian_splat_ref: None,
+                point_cloud_ref: None,
+                gaussian_splat_ref: Some(GaussianSplatRef::new(asset_id)),
             }],
         )?;
 
-        Ok(PointCloudImportReport {
+        Ok(GaussianSplatImportReport {
             asset_id,
             entity_id,
             chunk_assets,
-            point_count: imported.metadata.point_count,
+            splat_count: imported.metadata.splat_count,
         })
     }
 }
 
 impl ImportReport {
-    /// Merge a point cloud import into a generic import report.
-    pub fn from_point_cloud(report: &PointCloudImportReport) -> Self {
+    /// Merge a Gaussian splat import into a generic import report.
+    pub fn from_gaussian_splat(report: &GaussianSplatImportReport) -> Self {
         Self {
             mesh_assets: Vec::new(),
             material_assets: Vec::new(),
             texture_assets: Vec::new(),
-            point_cloud_assets: vec![report.asset_id],
+            point_cloud_assets: Vec::new(),
             chunk_assets: report.chunk_assets.clone(),
-            gaussian_splat_assets: Vec::new(),
+            gaussian_splat_assets: vec![report.asset_id],
             entity_count: 1,
         }
     }
 }
 
-fn payload_bounds(payload: &PointCloudChunkPayload) -> ([f32; 3], [f32; 3]) {
+fn payload_bounds(payload: &GaussianSplatChunkPayload) -> ([f32; 3], [f32; 3]) {
     let mut min = [f32::INFINITY; 3];
     let mut max = [f32::NEG_INFINITY; 3];
     for position in &payload.positions {
@@ -214,9 +211,7 @@ fn payload_bounds(payload: &PointCloudChunkPayload) -> ([f32; 3], [f32; 3]) {
     (min, max)
 }
 
-fn metadata_bounds(
-    records: &[c3d_asset_pointcloud::PointCloudChunkRecord],
-) -> ([f32; 3], [f32; 3]) {
+fn metadata_bounds(records: &[c3d_asset_gsplat::GaussianSplatChunkRecord]) -> ([f32; 3], [f32; 3]) {
     let mut min = [f32::INFINITY; 3];
     let mut max = [f32::NEG_INFINITY; 3];
     for record in records {
@@ -231,21 +226,21 @@ fn metadata_bounds(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use c3d_asset_pointcloud::{select_resident_chunks, ResidencyConfig};
+    use c3d_asset_gsplat::{select_resident_chunks, ResidencyConfig};
     use c3d_core::math::Vec3;
 
     #[test]
     fn synthetic_import_respects_residency_limit() {
         let temp = tempfile::tempdir().expect("tempdir");
-        let mut project = Project::create(temp.path(), "pointcloud").expect("project");
+        let mut project = Project::create(temp.path(), "gsplat").expect("project");
         let mut ids = UlidGenerator::default();
         let report = project
-            .import_synthetic_point_cloud(20_000, &mut ids)
+            .import_synthetic_gaussian_splats(10_000, &mut ids)
             .expect("import synthetic");
         assert!(report.chunk_assets.len() > 1);
 
         let metadata = project
-            .point_cloud_asset(report.asset_id)
+            .gaussian_splat_asset(report.asset_id)
             .expect("metadata");
         let selected = select_resident_chunks(
             &metadata,
@@ -259,16 +254,42 @@ mod tests {
     }
 
     #[test]
-    fn crop_creates_derived_asset() {
+    fn project_save_reload_preserves_gsplat_entity() {
         let temp = tempfile::tempdir().expect("tempdir");
-        let mut project = Project::create(temp.path(), "pointcloud").expect("project");
+        let mut project = Project::create(temp.path(), "gsplat").expect("project");
         let mut ids = UlidGenerator::default();
         let report = project
-            .import_synthetic_point_cloud(1_000, &mut ids)
+            .import_synthetic_gaussian_splats(500, &mut ids)
+            .expect("import synthetic");
+        project.save().expect("save");
+
+        let loaded = Project::open(temp.path()).expect("reload");
+        let entity = loaded
+            .scene()
+            .get(report.entity_id)
+            .expect("entity restored");
+        let gaussian_splat_ref = entity
+            .gaussian_splat_ref
+            .as_ref()
+            .expect("gaussian splat ref restored");
+        assert_eq!(gaussian_splat_ref.asset_id, report.asset_id);
+        let metadata = loaded
+            .gaussian_splat_asset(report.asset_id)
+            .expect("metadata restored");
+        assert_eq!(metadata.splat_count, report.splat_count);
+    }
+
+    #[test]
+    fn crop_creates_derived_asset() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let mut project = Project::create(temp.path(), "gsplat").expect("project");
+        let mut ids = UlidGenerator::default();
+        let report = project
+            .import_synthetic_gaussian_splats(1_000, &mut ids)
             .expect("store");
 
         let derived = project
-            .crop_point_cloud(
+            .crop_gaussian_splat(
                 report.asset_id,
                 PointCloudCropBox {
                     min: [-1.0, -1.0, -1.0],
@@ -279,9 +300,9 @@ mod tests {
             )
             .expect("crop");
         let metadata = project
-            .point_cloud_asset(derived)
+            .gaussian_splat_asset(derived)
             .expect("derived metadata");
-        assert!(metadata.point_count > 0);
-        assert!(metadata.point_count <= report.point_count);
+        assert!(metadata.splat_count > 0);
+        assert!(metadata.splat_count <= report.splat_count);
     }
 }

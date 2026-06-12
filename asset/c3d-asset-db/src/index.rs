@@ -16,6 +16,10 @@ pub enum AssetKind {
     PointCloud,
     /// Point cloud chunk payload blob.
     PointCloudChunk,
+    /// Gaussian splat metadata blob.
+    GaussianSplat,
+    /// Gaussian splat chunk payload blob.
+    GaussianSplatChunk,
 }
 
 /// Metadata entry stored in the asset index.

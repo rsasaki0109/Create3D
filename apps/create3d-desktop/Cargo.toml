@@ -17,6 +17,7 @@ c3d-rhi-wgpu.workspace = true
 c3d-scene-doc.workspace = true
 c3d-scene-ops.workspace = true
 c3d-scene-schema.workspace = true
+c3d-import-gsplat.workspace = true
 c3d-mesh-authoring.workspace = true
 c3d-project.workspace = true
 c3d-viewport.workspace = true

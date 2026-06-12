@@ -44,6 +44,19 @@ pub struct RenderPointCloud {
     pub crop_filter: Option<PointCloudCropBox>,
 }
 
+/// Gaussian splat asset rendered as blended billboard quads.
+#[derive(Component, Debug, Clone, Copy, PartialEq)]
+pub struct RenderGaussianSplat {
+    /// Gaussian splat metadata asset identifier.
+    pub asset_id: AssetId,
+    /// Global opacity multiplier.
+    pub opacity_scale: f32,
+    /// Global size multiplier.
+    pub size_scale: f32,
+    /// Optional scene-level crop filter.
+    pub crop_filter: Option<PointCloudCropBox>,
+}
+
 impl SceneTransform {
     /// Build a transform from a SceneDB local transform and optional parent world matrix.
     pub fn from_local(local: Transform, parent_world: Option<Mat4>) -> Self {

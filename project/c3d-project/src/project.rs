@@ -209,6 +209,7 @@ impl Project {
             texture_assets: texture_ids,
             point_cloud_assets: Vec::new(),
             chunk_assets: Vec::new(),
+            gaussian_splat_assets: Vec::new(),
             entity_count: operations
                 .iter()
                 .filter(|op| matches!(op, c3d_scene_ops::SceneOperation::CreateEntity { .. }))
@@ -258,6 +259,7 @@ mod tests {
                         mesh_ref: None,
                         material_binding: None,
                         point_cloud_ref: None,
+                        gaussian_splat_ref: None,
                     }],
                 ))
                 .expect("apply transaction");

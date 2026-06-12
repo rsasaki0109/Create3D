@@ -4,6 +4,7 @@
 
 mod authoring;
 mod error;
+mod gsplat;
 mod import;
 mod manifest;
 mod pointcloud;
@@ -11,6 +12,7 @@ mod project;
 
 pub use authoring::PrimitiveCreateReport;
 pub use error::{ProjectError, ProjectResult};
+pub use gsplat::GaussianSplatImportReport;
 pub use import::ImportReport;
 pub use manifest::ProjectManifest;
 pub use pointcloud::PointCloudImportReport;

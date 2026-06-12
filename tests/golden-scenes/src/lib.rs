@@ -75,4 +75,22 @@ mod tests {
         let restored = SceneDoc::from_json(&json).expect("deserialize scene");
         assert_eq!(scene, restored);
     }
+
+    #[test]
+    fn gaussian_splat_entity_round_trips() {
+        use c3d_core::EntityId;
+        use c3d_scene_doc::Entity;
+        use c3d_scene_schema::GaussianSplatRef;
+
+        let mut scene = SceneDoc::new();
+        let entity_id = EntityId::new();
+        let mut entity = Entity::new(entity_id);
+        entity.name = Some(c3d_scene_schema::Name::new("GoldenSplat"));
+        entity.gaussian_splat_ref = Some(GaussianSplatRef::new(c3d_core::AssetId::new()));
+        scene.insert_entity(entity, None).expect("insert entity");
+
+        let json = scene.to_json().expect("serialize scene");
+        let restored = SceneDoc::from_json(&json).expect("deserialize scene");
+        assert_eq!(scene, restored);
+    }
 }

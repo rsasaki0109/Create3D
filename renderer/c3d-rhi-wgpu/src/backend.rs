@@ -142,6 +142,71 @@ impl WgpuBackend {
         })
     }
 
+    /// Create a backend without a window surface for offscreen rendering.
+    pub fn headless() -> RhiResult<Self> {
+        pollster::block_on(Self::headless_async())
+    }
+
+    async fn headless_async() -> RhiResult<Self> {
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: None,
+                force_fallback_adapter: false,
+            })
+            .await
+            .map_err(|err| RhiError::Initialization(err.to_string()))?;
+
+        let (device, queue) = adapter
+            .request_device(&wgpu::DeviceDescriptor {
+                label: Some("create3d-headless-device"),
+                required_features: wgpu::Features::empty(),
+                required_limits: wgpu::Limits::default(),
+                memory_hints: wgpu::MemoryHints::default(),
+                trace: wgpu::Trace::Off,
+            })
+            .await
+            .map_err(|err| RhiError::Initialization(err.to_string()))?;
+
+        let uniform_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("transform-bind-group-layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None,
+                    },
+                    count: None,
+                }],
+            });
+
+        let uniform_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("transform-uniform"),
+            size: 64,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        Ok(Self {
+            instance,
+            device,
+            queue,
+            surface: None,
+            surface_config: None,
+            next_id: AtomicU32::new(1),
+            shaders: HashMap::new(),
+            buffers: HashMap::new(),
+            pipelines: HashMap::new(),
+            targets: HashMap::new(),
+            uniform_buffer,
+            uniform_bind_group_layout,
+        })
+    }
+
     fn alloc_handle(&self) -> u32 {
         self.next_id.fetch_add(1, Ordering::Relaxed)
     }
@@ -364,7 +429,11 @@ impl RhiBackend for WgpuBackend {
                     entry_point: Some("fs_main"),
                     targets: &[Some(wgpu::ColorTargetState {
                         format: color_format,
-                        blend: Some(wgpu::BlendState::REPLACE),
+                        blend: if desc.alpha_blend {
+                            Some(wgpu::BlendState::ALPHA_BLENDING)
+                        } else {
+                            Some(wgpu::BlendState::REPLACE)
+                        },
                         write_mask: wgpu::ColorWrites::ALL,
                     })],
                     compilation_options: Default::default(),
@@ -531,6 +600,79 @@ impl WgpuBackend {
     pub fn pass_draw_indexed(&self, pass: &mut wgpu::RenderPass<'_>, indices: u32) {
         pass.draw_indexed(0..indices, 0, 0..1);
     }
+
+    /// Read RGBA8 pixels from an offscreen render target after rendering.
+    pub fn read_render_target_rgba8(
+        &self,
+        target: RenderTargetHandle,
+    ) -> RhiResult<(Extent2D, Vec<u8>)> {
+        let entry = self.target_entry(target)?;
+        let width = entry.extent.width.max(1);
+        let height = entry.extent.height.max(1);
+        let bytes_per_row = width * 4;
+        let aligned_bytes_per_row = bytes_per_row.div_ceil(256) * 256;
+        let buffer_size = aligned_bytes_per_row * height;
+
+        let buffer = self.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("readback-buffer"),
+            size: buffer_size as u64,
+            usage: wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::MAP_READ,
+            mapped_at_creation: false,
+        });
+
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("readback-encoder"),
+            });
+        encoder.copy_texture_to_buffer(
+            wgpu::TexelCopyTextureInfo {
+                texture: &entry.resources.color_texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
+            },
+            wgpu::TexelCopyBufferInfo {
+                buffer: &buffer,
+                layout: wgpu::TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(aligned_bytes_per_row),
+                    rows_per_image: Some(height),
+                },
+            },
+            wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+        );
+        self.queue.submit([encoder.finish()]);
+
+        let slice = buffer.slice(..);
+        let (sender, receiver) = std::sync::mpsc::channel();
+        slice.map_async(wgpu::MapMode::Read, move |result| {
+            let _ = sender.send(result);
+        });
+        self.device
+            .poll(wgpu::PollType::Wait)
+            .map_err(|err| RhiError::Initialization(err.to_string()))?;
+        receiver
+            .recv()
+            .map_err(|err| RhiError::Initialization(err.to_string()))?
+            .map_err(|err| RhiError::Initialization(err.to_string()))?;
+
+        let data = slice.get_mapped_range();
+        let mut pixels = Vec::with_capacity((width * height * 4) as usize);
+        for row in 0..height {
+            let start = (row * aligned_bytes_per_row) as usize;
+            let end = start + bytes_per_row as usize;
+            pixels.extend_from_slice(&data[start..end]);
+        }
+        drop(data);
+        buffer.unmap();
+
+        Ok((entry.extent, pixels))
+    }
 }
 
 fn create_target_resources(
@@ -555,7 +697,9 @@ fn create_target_resources(
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
         format,
-        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT
+            | wgpu::TextureUsages::TEXTURE_BINDING
+            | wgpu::TextureUsages::COPY_SRC,
         view_formats: &[],
     });
     let color_view = color_texture.create_view(&wgpu::TextureViewDescriptor::default());

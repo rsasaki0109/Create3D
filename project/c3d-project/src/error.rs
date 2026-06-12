@@ -29,6 +29,12 @@ pub enum ProjectError {
     /// Point cloud asset failure.
     #[error("point cloud asset error: {0}")]
     PointCloud(String),
+    /// 3DGS import failure.
+    #[error(transparent)]
+    GaussianSplatImport(#[from] c3d_import_gsplat::ImportError),
+    /// Gaussian splat asset failure.
+    #[error("gaussian splat asset error: {0}")]
+    GaussianSplat(String),
     /// Mesh asset failure.
     #[error("mesh asset error: {0}")]
     Mesh(String),
