@@ -1,0 +1,116 @@
+# Create3D
+
+Create3D is an AI-native, GPU-native, cloud-native 3D creation platform built in Rust.
+
+This repository is in **Month 7** phase: point cloud assets, PLY import, chunked LOD residency, viewport point rendering, and crop tools.
+
+## Architecture
+
+- SceneDB is authoritative; ECS is a runtime projection.
+- All scene edits are typed transactions.
+- Assets are content-addressed in `assets/blobs/` with an index manifest.
+- Renderer code depends on `c3d-rhi`, not a backend directly (egui bootstrap in desktop is the only exception).
+- AI agents mutate scenes only through typed tools.
+
+See `Create3D/docs/architecture/create3d_master_architecture_design.md` for the full master design.
+
+## Build
+
+```bash
+cargo test --workspace
+cargo run -p xtask -- check
+```
+
+## Desktop editor
+
+```bash
+cargo run -p create3d-desktop
+```
+
+The window includes Month 5/6 interaction tools plus Month 7 point cloud features:
+
+- **Import PLY**: toolbar button or command palette (`Import PLY Point Cloud`)
+- **Point cloud viewport**: chunked GPU upload with residency (only nearby chunks are uploaded)
+- **Color modes**: RGB, Intensity, Classification
+- **Crop filter**: scene-level crop box in the inspector
+- **Derived crop asset**: create a cropped point cloud asset from the selection
+- **Create primitives / shading / material inspector / thumbnails** from Month 6
+- **Hierarchy / Inspector / Gizmo / Command palette** from Month 5
+
+Imported GLB meshes render with base color and baked base-color textures. The desktop app persists a demo project under the system temp directory.
+
+## CLI import
+
+Import a GLB into a project directory:
+
+```bash
+cargo run -p create3d-cli -- import \
+  --input /path/to/model.glb \
+  --output /path/to/project.c3d \
+  --name my-project
+```
+
+Import a PLY point cloud:
+
+```bash
+cargo run -p create3d-cli -- import-ply \
+  --input /path/to/cloud.ply \
+  --output /path/to/project.c3d \
+  --name my-pointcloud
+```
+
+Project layout:
+
+```text
+project.c3d/
+  manifest.c3d.toml
+  scenes/main.c3dscene.json
+  assets/
+    index.c3dassetdb
+    blobs/<hash-prefix>/<content-hash>
+  thumbnails/
+    <mesh-asset-id>.png
+```
+
+## Workspace layout (current)
+
+```text
+Create3D/
+├── apps/
+│   ├── create3d-desktop/    # winit + egui editor shell
+│   └── create3d-cli/        # import and project commands
+├── asset/
+│   ├── c3d-asset-db/       # content hash + blob storage + index
+│   ├── c3d-asset-mesh/     # mesh asset blobs
+│   ├── c3d-asset-material/ # basic PBR material blobs + material graph
+│   ├── c3d-asset-pointcloud/ # point cloud metadata + chunk payloads + residency
+│   ├── c3d-import-ply/     # ASCII PLY import + spatial chunking
+│   ├── c3d-mesh-authoring/ # primitives, topology validation, thumbnails
+│   └── c3d-import-gltf/    # glTF/GLB importer
+├── project/c3d-project/   # manifest + scene + AssetDB persistence
+├── engine/
+│   ├── c3d-core/            # IDs, errors, math, logging, versioning
+│   └── c3d-ecs/             # Bevy ECS runtime projection from SceneDB
+├── renderer/
+│   ├── c3d-rhi/             # backend-agnostic GPU traits
+│   └── c3d-rhi-wgpu/        # wgpu backend implementation
+├── editor/
+│   ├── c3d-editor-core/     # selection state + command registry
+│   └── c3d-viewport/        # orbit camera, picking, gizmo, mesh + point rendering
+├── scene/
+│   ├── c3d-scene-schema/    # Transform, Name, MeshRef, MaterialBinding, PointCloudRef
+│   ├── c3d-scene-doc/       # SceneDB document + serialization
+│   └── c3d-scene-ops/       # operations, transactions, undo/redo
+├── tools/xtask/             # fmt/clippy/test helper
+├── tests/golden-scenes/     # golden replay harness
+└── docs/                    # architecture, RFCs, guides
+```
+
+## License
+
+Licensed under either of:
+
+- Apache License, Version 2.0 (`LICENSE-APACHE`)
+- MIT license (`LICENSE-MIT`)
+
+at your option.

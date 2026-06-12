@@ -1,0 +1,27 @@
+[package]
+name = "c3d-viewport"
+description = "Create3D editor viewport renderer and camera controls"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+c3d-asset-db.workspace = true
+c3d-asset-material.workspace = true
+c3d-asset-mesh.workspace = true
+c3d-asset-pointcloud.workspace = true
+c3d-core.workspace = true
+c3d-ecs.workspace = true
+c3d-rhi.workspace = true
+c3d-rhi-wgpu.workspace = true
+c3d-scene-doc.workspace = true
+c3d-scene-schema.workspace = true
+glam.workspace = true
+bytemuck.workspace = true
+image = { workspace = true, default-features = false, features = ["png", "jpeg"] }
+
+[lints]
+workspace = true

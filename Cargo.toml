@@ -1,0 +1,82 @@
+[workspace]
+resolver = "2"
+members = [
+    "engine/c3d-core",
+    "engine/c3d-ecs",
+    "asset/c3d-asset-db",
+    "asset/c3d-asset-mesh",
+    "asset/c3d-asset-material",
+    "asset/c3d-asset-pointcloud",
+    "asset/c3d-import-ply",
+    "asset/c3d-mesh-authoring",
+    "asset/c3d-import-gltf",
+    "project/c3d-project",
+    "scene/c3d-scene-schema",
+    "scene/c3d-scene-doc",
+    "scene/c3d-scene-ops",
+    "renderer/c3d-rhi",
+    "renderer/c3d-rhi-wgpu",
+    "editor/c3d-editor-core",
+    "editor/c3d-viewport",
+    "apps/create3d-desktop",
+    "apps/create3d-cli",
+    "tools/xtask",
+    "tests/golden-scenes",
+]
+default-members = ["engine/c3d-core"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/create3d/create3d"
+authors = ["Create3D Contributors"]
+
+[workspace.dependencies]
+c3d-core = { path = "engine/c3d-core" }
+c3d-ecs = { path = "engine/c3d-ecs" }
+c3d-asset-db = { path = "asset/c3d-asset-db" }
+c3d-asset-mesh = { path = "asset/c3d-asset-mesh" }
+c3d-asset-material = { path = "asset/c3d-asset-material" }
+c3d-asset-pointcloud = { path = "asset/c3d-asset-pointcloud" }
+c3d-import-ply = { path = "asset/c3d-import-ply" }
+c3d-mesh-authoring = { path = "asset/c3d-mesh-authoring" }
+c3d-import-gltf = { path = "asset/c3d-import-gltf" }
+c3d-project = { path = "project/c3d-project" }
+c3d-scene-schema = { path = "scene/c3d-scene-schema" }
+c3d-scene-doc = { path = "scene/c3d-scene-doc" }
+c3d-scene-ops = { path = "scene/c3d-scene-ops" }
+c3d-rhi = { path = "renderer/c3d-rhi" }
+c3d-rhi-wgpu = { path = "renderer/c3d-rhi-wgpu" }
+c3d-viewport = { path = "editor/c3d-viewport" }
+c3d-editor-core = { path = "editor/c3d-editor-core" }
+glam = { version = "0.29", default-features = false, features = ["libm", "serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+ulid = { version = "1", features = ["serde"] }
+clap = { version = "4", features = ["derive"] }
+bevy_ecs = "0.16"
+wgpu = "25"
+winit = { version = "0.30", features = ["rwh_06"] }
+pollster = "0.4"
+egui = "0.32"
+egui-wgpu = { version = "0.32", features = ["winit"] }
+egui-winit = "0.32"
+bytemuck = { version = "1", features = ["derive"] }
+raw-window-handle = "0.6"
+blake3 = "1"
+gltf = { version = "1", features = ["import", "names"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+toml = "0.8"
+rfd = "0.15"
+
+[workspace.lints.rust]
+unsafe_code = "warn"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }

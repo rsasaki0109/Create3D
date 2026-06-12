@@ -1,0 +1,18 @@
+[package]
+name = "c3d-scene-schema"
+description = "Create3D scene component schemas"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+c3d-core = { workspace = true, features = ["serde"] }
+glam.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

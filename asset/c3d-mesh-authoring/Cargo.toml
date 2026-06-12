@@ -1,0 +1,17 @@
+[package]
+name = "c3d-mesh-authoring"
+description = "Create3D mesh authoring: primitives, topology validation, edit ops"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+c3d-asset-mesh.workspace = true
+c3d-asset-material.workspace = true
+image = { workspace = true, default-features = false, features = ["png"] }
+thiserror.workspace = true
+
+[lints]
+workspace = true

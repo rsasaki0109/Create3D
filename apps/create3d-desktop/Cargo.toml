@@ -1,0 +1,33 @@
+[package]
+name = "create3d-desktop"
+description = "Create3D desktop editor shell"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+c3d-asset-material.workspace = true
+c3d-core.workspace = true
+c3d-editor-core.workspace = true
+c3d-ecs.workspace = true
+c3d-rhi.workspace = true
+c3d-rhi-wgpu.workspace = true
+c3d-scene-doc.workspace = true
+c3d-scene-ops.workspace = true
+c3d-scene-schema.workspace = true
+c3d-mesh-authoring.workspace = true
+c3d-project.workspace = true
+c3d-viewport.workspace = true
+egui.workspace = true
+egui-wgpu.workspace = true
+egui-winit.workspace = true
+pollster.workspace = true
+rfd.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+winit.workspace = true
+
+[lints]
+workspace = true
