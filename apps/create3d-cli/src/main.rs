@@ -51,6 +51,18 @@ enum Command {
         #[arg(long, default_value = "imported-gsplat")]
         name: String,
     },
+    /// Import a URDF robot into a new or existing project.
+    ImportUrdf {
+        /// URDF source file.
+        #[arg(long)]
+        input: PathBuf,
+        /// Project output directory.
+        #[arg(long)]
+        output: PathBuf,
+        /// Project name when creating a new project.
+        #[arg(long, default_value = "imported-robot")]
+        name: String,
+    },
 }
 
 fn main() {
@@ -80,6 +92,11 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             output,
             name,
         } => import_gsplat(input, output, name),
+        Command::ImportUrdf {
+            input,
+            output,
+            name,
+        } => import_urdf(input, output, name),
     }
 }
 
@@ -143,6 +160,27 @@ fn import_gsplat(
         report.chunk_assets.len(),
         output.display(),
         report.entity_id
+    );
+    Ok(())
+}
+
+fn import_urdf(
+    input: PathBuf,
+    output: PathBuf,
+    name: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut ids = UlidGenerator::new();
+    let mut project = open_or_create_project(&output, name)?;
+
+    let report = project.import_urdf(&input, &mut ids)?;
+    project.save()?;
+
+    println!(
+        "Imported URDF robot `{}` with {} links into {} (root entity {})",
+        report.robot_name,
+        report.link_entities.len(),
+        output.display(),
+        report.root_entity_id
     );
     Ok(())
 }

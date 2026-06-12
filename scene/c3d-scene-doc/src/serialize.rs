@@ -1,7 +1,8 @@
 use c3d_core::version::C3D_SCENE_SCHEMA_CURRENT;
 use c3d_core::EntityId;
 use c3d_scene_schema::{
-    GaussianSplatRef, MaterialBinding, MeshRef, Name, PointCloudRef, Transform,
+    GaussianSplatRef, MaterialBinding, MeshRef, Name, PointCloudRef, RobotJoint, RobotLink,
+    RobotRoot, Transform,
 };
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +42,15 @@ pub struct SceneEntityRecord {
     /// Optional Gaussian splat reference.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gaussian_splat_ref: Option<GaussianSplatRef>,
+    /// Optional robot root marker.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub robot_root: Option<RobotRoot>,
+    /// Optional robot link metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub robot_link: Option<RobotLink>,
+    /// Optional robot joint metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub robot_joint: Option<RobotJoint>,
 }
 
 impl SceneDocument {
@@ -57,6 +67,9 @@ impl SceneDocument {
                 material_binding: entity.material_binding.clone(),
                 point_cloud_ref: entity.point_cloud_ref.clone(),
                 gaussian_splat_ref: entity.gaussian_splat_ref.clone(),
+                robot_root: entity.robot_root.clone(),
+                robot_link: entity.robot_link.clone(),
+                robot_joint: entity.robot_joint.clone(),
             })
             .collect();
         entities.sort_by_key(|entity| entity.id);
@@ -89,6 +102,9 @@ impl SceneDocument {
                     material_binding: record.material_binding.clone(),
                     point_cloud_ref: record.point_cloud_ref.clone(),
                     gaussian_splat_ref: record.gaussian_splat_ref.clone(),
+                    robot_root: record.robot_root.clone(),
+                    robot_link: record.robot_link.clone(),
+                    robot_joint: record.robot_joint.clone(),
                 },
             );
         }

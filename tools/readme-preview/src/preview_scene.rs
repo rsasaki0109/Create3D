@@ -32,6 +32,9 @@ pub fn build_preview_scene(assets: &mut AssetDb) -> (SceneDoc, PreviewLabels) {
             material_binding: None,
             point_cloud_ref: Some(PointCloudRef::new(asset_id)),
             gaussian_splat_ref: None,
+            robot_root: None,
+            robot_link: None,
+            robot_joint: None,
         }],
     )
     .expect("create preview entity");

@@ -1,0 +1,20 @@
+[package]
+name = "c3d-robotics-core"
+description = "Create3D robotics bridge protocol, kinematics, and TF helpers"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+c3d-core = { workspace = true, features = ["serde"] }
+c3d-scene-doc.workspace = true
+c3d-scene-ops.workspace = true
+c3d-scene-schema.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

@@ -839,9 +839,11 @@ dependencies = [
  "c3d-import-gsplat",
  "c3d-import-ply",
  "c3d-mesh-authoring",
+ "c3d-robotics-core",
  "c3d-scene-doc",
  "c3d-scene-ops",
  "c3d-scene-schema",
+ "c3d-urdf",
  "serde",
  "tempfile",
  "thiserror 2.0.18",
@@ -866,6 +868,19 @@ dependencies = [
  "thiserror 2.0.18",
  "wgpu",
  "winit",
+]
+
+[[package]]
+name = "c3d-robotics-core"
+version = "0.1.0"
+dependencies = [
+ "c3d-core",
+ "c3d-scene-doc",
+ "c3d-scene-ops",
+ "c3d-scene-schema",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
@@ -898,6 +913,17 @@ dependencies = [
  "c3d-core",
  "glam",
  "serde",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "c3d-urdf"
+version = "0.1.0"
+dependencies = [
+ "c3d-core",
+ "c3d-scene-schema",
+ "glam",
+ "roxmltree",
  "thiserror 2.0.18",
 ]
 
@@ -1188,6 +1214,7 @@ dependencies = [
  "c3d-project",
  "c3d-rhi",
  "c3d-rhi-wgpu",
+ "c3d-robotics-core",
  "c3d-scene-doc",
  "c3d-scene-ops",
  "c3d-scene-schema",
@@ -3153,6 +3180,12 @@ dependencies = [
  "web-sys",
  "windows-sys 0.59.0",
 ]
+
+[[package]]
+name = "roxmltree"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
 
 [[package]]
 name = "rustc-hash"

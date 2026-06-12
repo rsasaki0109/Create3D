@@ -9,6 +9,7 @@ mod import;
 mod manifest;
 mod pointcloud;
 mod project;
+mod robot;
 
 pub use authoring::PrimitiveCreateReport;
 pub use error::{ProjectError, ProjectResult};
@@ -17,3 +18,4 @@ pub use import::ImportReport;
 pub use manifest::ProjectManifest;
 pub use pointcloud::PointCloudImportReport;
 pub use project::Project;
+pub use robot::UrdfImportReport;

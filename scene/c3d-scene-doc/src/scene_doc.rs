@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use c3d_core::version::C3D_SCENE_SCHEMA_CURRENT;
 use c3d_core::EntityId;
 use c3d_scene_schema::{
-    GaussianSplatRef, MaterialBinding, MeshRef, Name, PointCloudRef, SchemaRegistry, Transform,
+    GaussianSplatRef, MaterialBinding, MeshRef, Name, PointCloudRef, RobotJoint, RobotLink,
+    RobotRoot, SchemaRegistry, Transform,
 };
 
 use crate::entity::{Entity, EntitySnapshot};
@@ -268,6 +269,96 @@ impl SceneDoc {
             .ok_or(SceneError::EntityNotFound(entity_id))?;
         let before = entity.gaussian_splat_ref.clone();
         entity.gaussian_splat_ref = gaussian_splat_ref;
+        Ok(before)
+    }
+
+    /// Set robot root marker component.
+    pub fn set_robot_root(
+        &mut self,
+        entity_id: EntityId,
+        robot_root: RobotRoot,
+    ) -> SceneResult<Option<RobotRoot>> {
+        let entity = self
+            .entities
+            .get_mut(&entity_id)
+            .ok_or(SceneError::EntityNotFound(entity_id))?;
+        let before = entity.robot_root.clone();
+        entity.robot_root = Some(robot_root);
+        Ok(before)
+    }
+
+    /// Restore robot root marker component.
+    pub fn restore_robot_root(
+        &mut self,
+        entity_id: EntityId,
+        robot_root: Option<RobotRoot>,
+    ) -> SceneResult<Option<RobotRoot>> {
+        let entity = self
+            .entities
+            .get_mut(&entity_id)
+            .ok_or(SceneError::EntityNotFound(entity_id))?;
+        let before = entity.robot_root.clone();
+        entity.robot_root = robot_root;
+        Ok(before)
+    }
+
+    /// Set robot link metadata component.
+    pub fn set_robot_link(
+        &mut self,
+        entity_id: EntityId,
+        robot_link: RobotLink,
+    ) -> SceneResult<Option<RobotLink>> {
+        let entity = self
+            .entities
+            .get_mut(&entity_id)
+            .ok_or(SceneError::EntityNotFound(entity_id))?;
+        let before = entity.robot_link.clone();
+        entity.robot_link = Some(robot_link);
+        Ok(before)
+    }
+
+    /// Restore robot link metadata component.
+    pub fn restore_robot_link(
+        &mut self,
+        entity_id: EntityId,
+        robot_link: Option<RobotLink>,
+    ) -> SceneResult<Option<RobotLink>> {
+        let entity = self
+            .entities
+            .get_mut(&entity_id)
+            .ok_or(SceneError::EntityNotFound(entity_id))?;
+        let before = entity.robot_link.clone();
+        entity.robot_link = robot_link;
+        Ok(before)
+    }
+
+    /// Set robot joint metadata component.
+    pub fn set_robot_joint(
+        &mut self,
+        entity_id: EntityId,
+        robot_joint: RobotJoint,
+    ) -> SceneResult<Option<RobotJoint>> {
+        let entity = self
+            .entities
+            .get_mut(&entity_id)
+            .ok_or(SceneError::EntityNotFound(entity_id))?;
+        let before = entity.robot_joint.clone();
+        entity.robot_joint = Some(robot_joint);
+        Ok(before)
+    }
+
+    /// Restore robot joint metadata component.
+    pub fn restore_robot_joint(
+        &mut self,
+        entity_id: EntityId,
+        robot_joint: Option<RobotJoint>,
+    ) -> SceneResult<Option<RobotJoint>> {
+        let entity = self
+            .entities
+            .get_mut(&entity_id)
+            .ok_or(SceneError::EntityNotFound(entity_id))?;
+        let before = entity.robot_joint.clone();
+        entity.robot_joint = robot_joint;
         Ok(before)
     }
 

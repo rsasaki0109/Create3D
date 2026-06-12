@@ -4,7 +4,7 @@
 
 Create3D is an AI-native, GPU-native, cloud-native 3D creation platform built in Rust.
 
-This repository is in **Month 9** phase: AI tool protocol, context builder, mock Copilot provider, transaction preview/approval, and provenance on AI commits.
+This repository is in **Month 10** phase: robot model schema, URDF import, ROS2 sidecar protocol, mock bridge, TF/joint visualization, and joint limit validation.
 
 ## Architecture
 
@@ -29,10 +29,12 @@ cargo run -p xtask -- check
 cargo run -p create3d-desktop
 ```
 
-The window includes Month 5/6 interaction tools plus Month 7 point cloud, Month 8 Gaussian splat, and Month 9 Copilot features:
+The window includes Month 5/6 interaction tools plus Month 7 point cloud, Month 8 Gaussian splat, Month 9 Copilot, and Month 10 robotics features:
 
 - **Import PLY**: toolbar button or command palette (`Import PLY Point Cloud`); auto-detects 3DGS PLY when using the generic PLY button
 - **Import 3DGS PLY**: toolbar button or command palette (`Import 3DGS PLY`)
+- **Import URDF**: toolbar button or command palette (`Import URDF`); builds link/joint hierarchy with primitive visuals
+- **Robotics panel**: topic list, TF tree, live joint states, mock ROS2 bridge start/stop
 - **Point cloud viewport**: chunked GPU upload with residency (only nearby chunks are uploaded)
 - **Gaussian splat viewport**: alpha-blended splat quads with opacity/size scales and crop filters
 - **Copilot panel**: ask scene questions, preview AI-proposed transactions, approve/reject before commit
@@ -81,6 +83,15 @@ cargo run -p create3d-cli -- import-gsplat \
   --name my-gsplat
 ```
 
+Import a URDF robot:
+
+```bash
+cargo run -p create3d-cli -- import-urdf \
+  --input /path/to/robot.urdf \
+  --output /path/to/project.c3d \
+  --name my-robot
+```
+
 Project layout:
 
 ```text
@@ -102,6 +113,9 @@ Create3D/
 │   ├── c3d-ai-tool-protocol/ # tool schema, registry, permission checks
 │   ├── c3d-ai-context/       # compact scene/selection context packs
 │   └── c3d-ai-copilot/       # mock provider, executor, preview/commit flow
+├── robotics/
+│   ├── c3d-robotics-core/    # ROS2 bridge IPC, mock bridge, kinematics, TF tree
+│   └── c3d-urdf/             # URDF parser and import planning
 ├── apps/
 │   ├── create3d-desktop/    # winit + egui editor shell
 │   └── create3d-cli/        # import and project commands
@@ -126,7 +140,7 @@ Create3D/
 │   ├── c3d-editor-core/     # selection state + command registry
 │   └── c3d-viewport/        # orbit camera, picking, gizmo, mesh + point rendering
 ├── scene/
-│   ├── c3d-scene-schema/    # Transform, Name, MeshRef, MaterialBinding, PointCloudRef, GaussianSplatRef
+│   ├── c3d-scene-schema/    # Transform, Name, MeshRef, MaterialBinding, PointCloudRef, GaussianSplatRef, RobotRoot/Link/Joint
 │   ├── c3d-scene-doc/       # SceneDB document + serialization
 │   └── c3d-scene-ops/       # operations, transactions, undo/redo
 ├── tools/

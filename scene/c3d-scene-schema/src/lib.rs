@@ -7,7 +7,9 @@ pub mod components;
 pub mod registry;
 
 pub use components::{
-    AnnotationPlaceholder, GaussianSplatRef, MaterialBinding, MeshRef, Name, PointCloudColorMode,
-    PointCloudCropBox, PointCloudRef, TopologyMode, Transform, TransformOp,
+    joint_motion_transform, validate_joint_position, AnnotationPlaceholder, GaussianSplatRef,
+    MaterialBinding, MeshRef, Name, PointCloudColorMode, PointCloudCropBox, PointCloudRef,
+    RobotJoint, RobotJointLimitError, RobotJointLimits, RobotJointType, RobotLink, RobotRoot,
+    TopologyMode, Transform, TransformOp,
 };
 pub use registry::{ComponentSchemaVersion, SchemaError, SchemaRegistry};

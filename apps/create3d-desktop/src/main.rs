@@ -16,10 +16,13 @@ use c3d_mesh_authoring::PrimitiveKind;
 use c3d_project::Project;
 use c3d_rhi::Extent2D;
 use c3d_rhi_wgpu::WgpuBackend;
+use c3d_robotics_core::{
+    apply_joint_state, robot_tf_trees, JointStateUpdate, MockBridge, TfTreeNode, TopicInfo,
+};
 use c3d_scene_ops::{SceneOperation, Transaction, TransactionManager};
 use c3d_scene_schema::{
-    GaussianSplatRef, Name, PointCloudColorMode, PointCloudCropBox, PointCloudRef, Transform,
-    TransformOp,
+    GaussianSplatRef, Name, PointCloudColorMode, PointCloudCropBox, PointCloudRef, RobotJointType,
+    Transform, TransformOp,
 };
 use c3d_viewport::{
     gizmo_drag_delta, pick_entity, pick_gizmo_axis, GizmoDragState, MeshGpuCache, OrbitCamera,
@@ -74,6 +77,11 @@ struct DesktopApp {
     copilot_messages: Vec<CopilotMessage>,
     copilot_pending: Option<CopilotProposal>,
     copilot_preview_manager: Option<TransactionManager>,
+    robotics_mock_running: bool,
+    robotics_mock_bridge: Option<MockBridge>,
+    robotics_topics: Vec<TopicInfo>,
+    robotics_joint_states: Vec<(String, f64)>,
+    robotics_status: String,
 }
 
 #[derive(Debug, Clone)]
@@ -102,6 +110,11 @@ struct InspectorState {
     gaussian_splat_size_scale: f32,
     crop_min: [f32; 3],
     crop_max: [f32; 3],
+    robot_joint_name: Option<String>,
+    robot_joint_type: Option<RobotJointType>,
+    robot_joint_position: f64,
+    robot_joint_lower: Option<f64>,
+    robot_joint_upper: Option<f64>,
 }
 
 enum ImportRequest {
@@ -109,6 +122,7 @@ enum ImportRequest {
     PointCloudPly(PathBuf),
     GsplatPly(PathBuf),
     AutoPly(PathBuf),
+    Urdf(PathBuf),
 }
 
 impl InspectorState {
@@ -158,6 +172,11 @@ impl Default for DesktopApp {
             copilot_messages: Vec::new(),
             copilot_pending: None,
             copilot_preview_manager: None,
+            robotics_mock_running: false,
+            robotics_mock_bridge: None,
+            robotics_topics: Vec::new(),
+            robotics_joint_states: Vec::new(),
+            robotics_status: String::new(),
         }
     }
 }
@@ -232,6 +251,9 @@ impl ApplicationHandler for DesktopApp {
                     material_binding: None,
                     point_cloud_ref: None,
                     gaussian_splat_ref: None,
+                    robot_root: None,
+                    robot_link: None,
+                    robot_joint: None,
                 }],
             ))
             .expect("create demo entity");
@@ -383,6 +405,10 @@ impl DesktopApp {
                 .add_filter("3DGS PLY", &["ply"])
                 .pick_file()
                 .map(ImportRequest::GsplatPly),
+            "scene.import_urdf" => rfd::FileDialog::new()
+                .add_filter("URDF", &["urdf", "xacro"])
+                .pick_file()
+                .map(ImportRequest::Urdf),
             "pointcloud.crop_derived" => {
                 self.crop_selected_point_cloud();
                 None
@@ -684,6 +710,20 @@ impl DesktopApp {
                 }
             }
         }
+        self.inspector.robot_joint_name = None;
+        self.inspector.robot_joint_type = None;
+        self.inspector.robot_joint_position = 0.0;
+        self.inspector.robot_joint_lower = None;
+        self.inspector.robot_joint_upper = None;
+        if let Some(joint) = entity.robot_joint.as_ref() {
+            self.inspector.robot_joint_name = Some(joint.joint_name.clone());
+            self.inspector.robot_joint_type = Some(joint.joint_type);
+            self.inspector.robot_joint_position = joint.position;
+            if let Some(limits) = joint.limits {
+                self.inspector.robot_joint_lower = Some(limits.lower);
+                self.inspector.robot_joint_upper = Some(limits.upper);
+            }
+        }
     }
 
     fn draw_inspector(&mut self, ui: &mut egui::Ui) {
@@ -901,6 +941,36 @@ impl DesktopApp {
                 self.crop_selected_gaussian_splat();
             }
         }
+
+        if let Some(joint_name) = self.inspector.robot_joint_name.clone() {
+            ui.separator();
+            ui.label("Robot Joint");
+            ui.monospace(&joint_name);
+            if let Some(joint_type) = self.inspector.robot_joint_type {
+                ui.label(format!("Type: {joint_type:?}"));
+            }
+            let mut position = self.inspector.robot_joint_position;
+            let speed = match self.inspector.robot_joint_type {
+                Some(RobotJointType::Prismatic) => 0.01,
+                _ => 0.02,
+            };
+            if ui
+                .add(
+                    egui::DragValue::new(&mut position)
+                        .speed(speed)
+                        .prefix("Position "),
+                )
+                .changed()
+            {
+                self.apply_robot_joint_position(entity_id, &joint_name, position);
+            }
+            if let (Some(lower), Some(upper)) = (
+                self.inspector.robot_joint_lower,
+                self.inspector.robot_joint_upper,
+            ) {
+                ui.label(format!("Limits: [{lower:.3}, {upper:.3}]"));
+            }
+        }
     }
 
     fn draw_hierarchy(&mut self, ui: &mut egui::Ui) {
@@ -916,8 +986,20 @@ impl DesktopApp {
                 .as_ref()
                 .map(|name| name.value.as_str())
                 .unwrap_or("<Unnamed>");
+            let prefix = if entity.robot_root.is_some() {
+                "[Robot] "
+            } else if entity.robot_link.is_some() {
+                "[Link] "
+            } else if entity.robot_joint.is_some() {
+                "[Joint] "
+            } else {
+                ""
+            };
             let selected = self.selection.is_selected(entity.id);
-            if ui.selectable_label(selected, label).clicked() {
+            if ui
+                .selectable_label(selected, format!("{prefix}{label}"))
+                .clicked()
+            {
                 self.selection.select(entity.id);
             }
         }
@@ -1064,11 +1146,190 @@ impl DesktopApp {
         }
     }
 
+    fn import_urdf(&mut self, path: PathBuf) {
+        let Some(project) = self.project.as_mut() else {
+            return;
+        };
+        match project.import_urdf(path, &mut self.ids) {
+            Ok(report) => {
+                let scene = self.project.as_ref().expect("project").scene().clone();
+                self.scene_manager = Some(TransactionManager::new(scene));
+                self.selection.select(report.root_entity_id);
+                self.mesh_cache.invalidate_all();
+                self.robotics_mock_bridge = Some(MockBridge::new(
+                    report.robot_name.clone(),
+                    report.joint_names.clone(),
+                ));
+                self.robotics_joint_states = report
+                    .joint_names
+                    .iter()
+                    .map(|name| (name.clone(), 0.0))
+                    .collect();
+                self.robotics_status = format!(
+                    "Imported robot `{}` with {} links",
+                    report.robot_name,
+                    report.link_entities.len()
+                );
+                self.sync_runtime();
+                if let Some(project) = self.project.as_ref() {
+                    let _ = project.save();
+                }
+                tracing::info!(
+                    "imported urdf robot {} with {} joints",
+                    report.robot_name,
+                    report.joint_names.len()
+                );
+            }
+            Err(err) => tracing::error!("urdf import failed: {err}"),
+        }
+    }
+
+    fn apply_robot_joint_position(&mut self, entity_id: EntityId, joint_name: &str, position: f64) {
+        if let Some(manager) = self.scene_manager.as_mut() {
+            match apply_joint_state(
+                manager.scene_mut(),
+                &JointStateUpdate {
+                    joint_name: joint_name.to_string(),
+                    position,
+                },
+            ) {
+                Ok(_) => {
+                    self.inspector.robot_joint_position = position;
+                    self.sync_runtime();
+                }
+                Err(err) => tracing::warn!("joint update rejected: {err}"),
+            }
+        }
+        let _ = entity_id;
+    }
+
+    fn start_robotics_mock(&mut self) {
+        if self.robotics_mock_bridge.is_none() {
+            self.robotics_status = "Import a URDF robot before starting the mock bridge".into();
+            return;
+        }
+        self.robotics_mock_running = true;
+        self.robotics_status = "Mock ROS2 bridge running".into();
+    }
+
+    fn stop_robotics_mock(&mut self) {
+        self.robotics_mock_running = false;
+        self.robotics_status = "Mock ROS2 bridge stopped".into();
+    }
+
+    fn tick_robotics_mock(&mut self) {
+        if !self.robotics_mock_running {
+            return;
+        }
+        let Some(bridge) = self.robotics_mock_bridge.as_mut() else {
+            return;
+        };
+        let envelopes = bridge.next_envelopes();
+        let mut updates = Vec::new();
+        for envelope in envelopes {
+            match envelope.message {
+                c3d_robotics_core::BridgeMessage::TopicList { topics } => {
+                    self.robotics_topics = topics;
+                }
+                c3d_robotics_core::BridgeMessage::JointState(message) => {
+                    self.robotics_joint_states = message
+                        .joint_names
+                        .iter()
+                        .zip(message.positions.iter())
+                        .map(|(name, position)| (name.clone(), *position))
+                        .collect();
+                    for (name, position) in &self.robotics_joint_states {
+                        updates.push(JointStateUpdate {
+                            joint_name: name.clone(),
+                            position: *position,
+                        });
+                    }
+                }
+                c3d_robotics_core::BridgeMessage::TfTree(_) => {}
+                c3d_robotics_core::BridgeMessage::Hello { .. } => {}
+            }
+        }
+        if updates.is_empty() {
+            return;
+        }
+        if let Some(manager) = self.scene_manager.as_mut() {
+            if let Err(err) = c3d_robotics_core::apply_joint_states(manager.scene_mut(), &updates) {
+                tracing::warn!("mock joint update failed: {err}");
+                return;
+            }
+            self.sync_runtime();
+        }
+    }
+
+    fn draw_robotics_panel(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Robotics");
+        if !self.robotics_status.is_empty() {
+            ui.label(&self.robotics_status);
+        }
+        ui.horizontal(|ui| {
+            if ui.button("Start Mock Bridge").clicked() {
+                self.start_robotics_mock();
+            }
+            if ui.button("Stop Mock Bridge").clicked() {
+                self.stop_robotics_mock();
+            }
+        });
+
+        ui.separator();
+        ui.label("Topics");
+        if self.robotics_topics.is_empty() {
+            ui.label("No topics yet");
+        } else {
+            for topic in &self.robotics_topics {
+                ui.monospace(format!("{} ({})", topic.name, topic.message_type));
+            }
+        }
+
+        ui.separator();
+        ui.label("Joint States");
+        if self.robotics_joint_states.is_empty() {
+            ui.label("No joint states yet");
+        } else {
+            for (name, position) in &self.robotics_joint_states {
+                ui.label(format!("{name}: {position:.3}"));
+            }
+        }
+
+        ui.separator();
+        ui.label("TF Tree");
+        let trees = self
+            .scene_manager
+            .as_ref()
+            .map(|manager| robot_tf_trees(manager.scene()))
+            .unwrap_or_default();
+        if trees.is_empty() {
+            ui.label("No robot roots in scene");
+        } else {
+            for tree in trees {
+                ui.label(format!("Robot: {}", tree.robot_name));
+                self.draw_tf_node(ui, &tree.root, 0);
+            }
+        }
+    }
+
+    fn draw_tf_node(&self, ui: &mut egui::Ui, node: &TfTreeNode, depth: usize) {
+        ui.label(format!(
+            "{:indent$}{}",
+            "",
+            node.frame_name,
+            indent = depth * 2
+        ));
+        for child in &node.children {
+            self.draw_tf_node(ui, child, depth + 1);
+        }
+    }
+
     fn dispatch_import(&mut self, request: ImportRequest) {
         match request {
             ImportRequest::Glb(path) => self.import_glb(path),
             ImportRequest::PointCloudPly(path) => self.import_ply(path),
             ImportRequest::GsplatPly(path) => self.import_gsplat(path),
+            ImportRequest::Urdf(path) => self.import_urdf(path),
             ImportRequest::AutoPly(path) => {
                 let is_gsplat = std::fs::read(&path)
                     .ok()
@@ -1440,6 +1701,7 @@ impl DesktopApp {
         let now = Instant::now();
         self.frame_ms = now.duration_since(self.last_frame).as_secs_f32() * 1000.0;
         self.last_frame = now;
+        self.tick_robotics_mock();
 
         let window = self.window.clone().expect("window");
         let egui_ctx = self.egui_ctx.clone().expect("egui ctx");
@@ -1479,6 +1741,11 @@ impl DesktopApp {
                 .resizable(true)
                 .show(ctx, |ui| self.draw_hierarchy(ui));
 
+            egui::SidePanel::left("robotics")
+                .default_width(240.0)
+                .resizable(true)
+                .show(ctx, |ui| self.draw_robotics_panel(ui));
+
             egui::SidePanel::right("inspector")
                 .default_width(260.0)
                 .resizable(true)
@@ -1512,6 +1779,12 @@ impl DesktopApp {
                         .add_filter("3DGS PLY", &["ply"])
                         .pick_file()
                         .map(ImportRequest::GsplatPly);
+                }
+                if ui.button("Import URDF").clicked() {
+                    import_request = rfd::FileDialog::new()
+                        .add_filter("URDF", &["urdf", "xacro"])
+                        .pick_file()
+                        .map(ImportRequest::Urdf);
                 }
                 if ui.button("Undo").clicked() {
                     self.undo();

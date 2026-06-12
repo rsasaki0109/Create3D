@@ -23,6 +23,9 @@ fn replay_transactions_yields_identical_scene() {
                 material_binding: None,
                 point_cloud_ref: None,
                 gaussian_splat_ref: None,
+                robot_root: None,
+                robot_link: None,
+                robot_joint: None,
             }],
         ),
         Transaction::new(
@@ -36,6 +39,9 @@ fn replay_transactions_yields_identical_scene() {
                 material_binding: None,
                 point_cloud_ref: None,
                 gaussian_splat_ref: None,
+                robot_root: None,
+                robot_link: None,
+                robot_joint: None,
             }],
         ),
         Transaction::new(
@@ -71,6 +77,9 @@ fn serialized_scene_matches_replayed_scene() {
             material_binding: None,
             point_cloud_ref: None,
             gaussian_splat_ref: None,
+            robot_root: None,
+            robot_link: None,
+            robot_joint: None,
         }],
     )];
 
@@ -99,6 +108,9 @@ fn gaussian_splat_ref_replays_and_serializes() {
                 material_binding: None,
                 point_cloud_ref: None,
                 gaussian_splat_ref: Some(GaussianSplatRef::new(asset_id)),
+                robot_root: None,
+                robot_link: None,
+                robot_joint: None,
             }],
         ),
         Transaction::new(

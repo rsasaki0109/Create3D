@@ -122,6 +122,9 @@ impl Project {
                 material_binding: Some(MaterialBinding::new(material_id)),
                 point_cloud_ref: None,
                 gaussian_splat_ref: None,
+                robot_root: None,
+                robot_link: None,
+                robot_joint: None,
             }],
         )?;
 

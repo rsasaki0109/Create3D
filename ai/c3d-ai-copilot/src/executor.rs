@@ -124,6 +124,9 @@ impl ToolExecutor {
                     material_binding: None,
                     point_cloud_ref: None,
                     gaussian_splat_ref: None,
+                    robot_root: None,
+                    robot_link: None,
+                    robot_joint: None,
                 }])
             }
             other => Err(CopilotError::Unsupported(format!(

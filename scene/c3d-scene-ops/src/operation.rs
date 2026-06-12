@@ -1,7 +1,8 @@
 use c3d_core::EntityId;
 use c3d_scene_doc::EntitySnapshot;
 use c3d_scene_schema::{
-    GaussianSplatRef, MaterialBinding, MeshRef, Name, PointCloudRef, Transform, TransformOp,
+    GaussianSplatRef, MaterialBinding, MeshRef, Name, PointCloudRef, RobotJoint, RobotLink,
+    RobotRoot, Transform, TransformOp,
 };
 use serde::{Deserialize, Serialize};
 
@@ -30,6 +31,15 @@ pub enum SceneOperation {
         /// Optional Gaussian splat reference component.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         gaussian_splat_ref: Option<GaussianSplatRef>,
+        /// Optional robot root marker component.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        robot_root: Option<RobotRoot>,
+        /// Optional robot link metadata component.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        robot_link: Option<RobotLink>,
+        /// Optional robot joint metadata component.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        robot_joint: Option<RobotJoint>,
     },
     /// Delete an existing entity.
     DeleteEntity {
@@ -119,5 +129,19 @@ pub enum SceneOperation {
         entity_id: EntityId,
         /// Previous Gaussian splat reference value.
         gaussian_splat_ref: Option<GaussianSplatRef>,
+    },
+    /// Set robot joint metadata component.
+    SetRobotJoint {
+        /// Target entity.
+        entity_id: EntityId,
+        /// Robot joint value.
+        robot_joint: RobotJoint,
+    },
+    /// Restore a previous robot joint value, or clear it when `None`.
+    RestoreRobotJoint {
+        /// Target entity.
+        entity_id: EntityId,
+        /// Previous robot joint value.
+        robot_joint: Option<RobotJoint>,
     },
 }

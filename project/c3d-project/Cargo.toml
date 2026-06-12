@@ -17,6 +17,7 @@ c3d-import-gltf.workspace = true
 c3d-asset-gsplat.workspace = true
 c3d-import-ply.workspace = true
 c3d-import-gsplat.workspace = true
+c3d-urdf.workspace = true
 c3d-mesh-authoring.workspace = true
 c3d-scene-doc.workspace = true
 c3d-scene-ops.workspace = true
@@ -26,6 +27,7 @@ thiserror.workspace = true
 toml.workspace = true
 
 [dev-dependencies]
+c3d-robotics-core.workspace = true
 tempfile = "3"
 
 [lints]

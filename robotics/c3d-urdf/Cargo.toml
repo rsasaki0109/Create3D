@@ -1,0 +1,18 @@
+[package]
+name = "c3d-urdf"
+description = "URDF parser and import planning for Create3D"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+c3d-core = { workspace = true, features = ["serde"] }
+c3d-scene-schema.workspace = true
+glam.workspace = true
+roxmltree = "0.20"
+thiserror.workspace = true
+
+[lints]
+workspace = true

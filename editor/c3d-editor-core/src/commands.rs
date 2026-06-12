@@ -46,6 +46,11 @@ impl CommandRegistry {
                     shortcut: None,
                 },
                 EditorCommand {
+                    id: "scene.import_urdf",
+                    label: "Import URDF",
+                    shortcut: None,
+                },
+                EditorCommand {
                     id: "pointcloud.crop_derived",
                     label: "Crop Point Cloud To Derived Asset",
                     shortcut: None,

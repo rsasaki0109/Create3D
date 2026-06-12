@@ -17,6 +17,9 @@ pub fn apply_operation(
             material_binding,
             point_cloud_ref,
             gaussian_splat_ref,
+            robot_root,
+            robot_link,
+            robot_joint,
         } => {
             let mut entity = Entity::new(*entity_id);
             entity.transform = *transform;
@@ -25,6 +28,9 @@ pub fn apply_operation(
             entity.material_binding = material_binding.clone();
             entity.point_cloud_ref = point_cloud_ref.clone();
             entity.gaussian_splat_ref = gaussian_splat_ref.clone();
+            entity.robot_root = robot_root.clone();
+            entity.robot_link = robot_link.clone();
+            entity.robot_joint = robot_joint.clone();
             scene.insert_entity(entity, *parent)?;
             let snapshot = scene.get(*entity_id).expect("entity inserted").snapshot();
             Ok(SceneOperation::DeleteEntity { snapshot })
@@ -40,6 +46,9 @@ pub fn apply_operation(
                 material_binding: removed.material_binding,
                 point_cloud_ref: removed.point_cloud_ref,
                 gaussian_splat_ref: removed.gaussian_splat_ref,
+                robot_root: removed.robot_root,
+                robot_link: removed.robot_link,
+                robot_joint: removed.robot_joint,
             })
         }
         SceneOperation::SetTransform {
@@ -160,6 +169,26 @@ pub fn apply_operation(
                 gaussian_splat_ref: before,
             })
         }
+        SceneOperation::SetRobotJoint {
+            entity_id,
+            robot_joint,
+        } => {
+            let before = scene.set_robot_joint(*entity_id, robot_joint.clone())?;
+            Ok(SceneOperation::RestoreRobotJoint {
+                entity_id: *entity_id,
+                robot_joint: before,
+            })
+        }
+        SceneOperation::RestoreRobotJoint {
+            entity_id,
+            robot_joint,
+        } => {
+            let before = scene.restore_robot_joint(*entity_id, robot_joint.clone())?;
+            Ok(SceneOperation::RestoreRobotJoint {
+                entity_id: *entity_id,
+                robot_joint: before,
+            })
+        }
     }
 }
 
@@ -198,6 +227,9 @@ mod tests {
                 material_binding: None,
                 point_cloud_ref: None,
                 gaussian_splat_ref: None,
+                robot_root: None,
+                robot_link: None,
+                robot_joint: None,
             },
         )
         .expect("apply create");

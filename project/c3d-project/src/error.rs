@@ -41,6 +41,12 @@ pub enum ProjectError {
     /// Material asset failure.
     #[error("material asset error: {0}")]
     Material(String),
+    /// URDF parse failure.
+    #[error(transparent)]
+    Urdf(#[from] c3d_urdf::UrdfError),
+    /// URDF import failure.
+    #[error("urdf import error: {0}")]
+    UrdfImport(String),
     /// Project was not found.
     #[error("project not found at {0}")]
     NotFound(String),

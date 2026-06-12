@@ -28,6 +28,8 @@ members = [
     "ai/c3d-ai-tool-protocol",
     "ai/c3d-ai-context",
     "ai/c3d-ai-copilot",
+    "robotics/c3d-robotics-core",
+    "robotics/c3d-urdf",
 ]
 default-members = ["engine/c3d-core"]
 
@@ -62,6 +64,8 @@ c3d-editor-core = { path = "editor/c3d-editor-core" }
 c3d-ai-tool-protocol = { path = "ai/c3d-ai-tool-protocol" }
 c3d-ai-context = { path = "ai/c3d-ai-context" }
 c3d-ai-copilot = { path = "ai/c3d-ai-copilot" }
+c3d-robotics-core = { path = "robotics/c3d-robotics-core" }
+c3d-urdf = { path = "robotics/c3d-urdf" }
 glam = { version = "0.29", default-features = false, features = ["libm", "serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
