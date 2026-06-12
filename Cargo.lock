@@ -751,6 +751,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "c3d-collab-core"
+version = "0.1.0"
+dependencies = [
+ "c3d-core",
+ "c3d-scene-ops",
+ "c3d-scene-schema",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "ulid",
+]
+
+[[package]]
 name = "c3d-core"
 version = "0.1.0"
 dependencies = [
@@ -913,6 +927,20 @@ dependencies = [
  "c3d-core",
  "glam",
  "serde",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "c3d-sync"
+version = "0.1.0"
+dependencies = [
+ "c3d-collab-core",
+ "c3d-core",
+ "c3d-scene-ops",
+ "c3d-scene-schema",
+ "serde",
+ "serde_json",
+ "tempfile",
  "thiserror 2.0.18",
 ]
 
@@ -1206,6 +1234,7 @@ version = "0.1.0"
 dependencies = [
  "c3d-ai-copilot",
  "c3d-asset-material",
+ "c3d-collab-core",
  "c3d-core",
  "c3d-ecs",
  "c3d-editor-core",
@@ -1218,6 +1247,7 @@ dependencies = [
  "c3d-scene-doc",
  "c3d-scene-ops",
  "c3d-scene-schema",
+ "c3d-sync",
  "c3d-viewport",
  "egui",
  "egui-wgpu",
@@ -1227,6 +1257,14 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "winit",
+]
+
+[[package]]
+name = "create3d-sync-server"
+version = "0.1.0"
+dependencies = [
+ "c3d-sync",
+ "clap",
 ]
 
 [[package]]

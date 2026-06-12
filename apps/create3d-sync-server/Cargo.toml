@@ -1,0 +1,19 @@
+[package]
+name = "create3d-sync-server"
+description = "Create3D collaboration sync server prototype"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "create3d-sync-server"
+path = "src/main.rs"
+
+[dependencies]
+c3d-sync = { path = "../../collaboration/c3d-sync" }
+clap.workspace = true
+
+[lints]
+workspace = true

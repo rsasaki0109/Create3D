@@ -30,6 +30,9 @@ members = [
     "ai/c3d-ai-copilot",
     "robotics/c3d-robotics-core",
     "robotics/c3d-urdf",
+    "collaboration/c3d-collab-core",
+    "collaboration/c3d-sync",
+    "apps/create3d-sync-server",
 ]
 default-members = ["engine/c3d-core"]
 
@@ -66,6 +69,8 @@ c3d-ai-context = { path = "ai/c3d-ai-context" }
 c3d-ai-copilot = { path = "ai/c3d-ai-copilot" }
 c3d-robotics-core = { path = "robotics/c3d-robotics-core" }
 c3d-urdf = { path = "robotics/c3d-urdf" }
+c3d-collab-core = { path = "collaboration/c3d-collab-core" }
+c3d-sync = { path = "collaboration/c3d-sync" }
 glam = { version = "0.29", default-features = false, features = ["libm", "serde"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

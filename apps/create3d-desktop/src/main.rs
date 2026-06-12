@@ -6,6 +6,7 @@ use std::time::Instant;
 
 use c3d_ai_copilot::{CopilotEngine, CopilotProposal, CopilotResponse};
 use c3d_asset_material::{MaterialAssetData, MaterialGraphData};
+use c3d_collab_core::{BranchProposal, CommentStatus, SceneComment};
 use c3d_core::logging::{init_logging, LoggingConfig};
 use c3d_core::math::{Vec2, Vec3};
 use c3d_core::{AssetId, EntityId, UlidGenerator};
@@ -24,6 +25,7 @@ use c3d_scene_schema::{
     GaussianSplatRef, Name, PointCloudColorMode, PointCloudCropBox, PointCloudRef, RobotJointType,
     Transform, TransformOp,
 };
+use c3d_sync::{CollabStore, SyncClient, SyncClientConfig, SyncEvent};
 use c3d_viewport::{
     gizmo_drag_delta, pick_entity, pick_gizmo_axis, GizmoDragState, MeshGpuCache, OrbitCamera,
     PointCloudGpuCache, SplatGpuCache, ViewportRenderer, ViewportShadingMode,
@@ -82,6 +84,16 @@ struct DesktopApp {
     robotics_topics: Vec<TopicInfo>,
     robotics_joint_states: Vec<(String, f64)>,
     robotics_status: String,
+    collab_user_name: String,
+    collab_server_addr: String,
+    collab_workspace: String,
+    collab_status: String,
+    collab_comment_input: String,
+    sync_client: Option<SyncClient>,
+    remote_presence: Vec<c3d_collab_core::UserPresence>,
+    collab_comments: Vec<SceneComment>,
+    collab_proposals: Vec<BranchProposal>,
+    applying_remote_sync: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -177,6 +189,16 @@ impl Default for DesktopApp {
             robotics_topics: Vec::new(),
             robotics_joint_states: Vec::new(),
             robotics_status: String::new(),
+            collab_user_name: "Editor".into(),
+            collab_server_addr: "127.0.0.1:9731".into(),
+            collab_workspace: "default-workspace".into(),
+            collab_status: String::new(),
+            collab_comment_input: String::new(),
+            sync_client: None,
+            remote_presence: Vec::new(),
+            collab_comments: Vec::new(),
+            collab_proposals: Vec::new(),
+            applying_remote_sync: false,
         }
     }
 }
@@ -271,6 +293,12 @@ impl ApplicationHandler for DesktopApp {
         self.viewport_texture = Some(viewport_texture);
         self.scene_manager = Some(scene_manager);
         self.project = Some(project);
+        if let Some(project) = self.project.as_ref() {
+            if let Ok(store) = CollabStore::load(project.root().join("collab")) {
+                self.collab_comments = store.comments();
+                self.collab_proposals = store.proposals();
+            }
+        }
         self.demo_entity = Some(demo_entity);
         self.last_frame = Instant::now();
     }
@@ -527,15 +555,15 @@ impl DesktopApp {
         if delta.length_squared() <= f32::EPSILON {
             return;
         }
-        if let Some(manager) = self.scene_manager.as_mut() {
-            let _ = manager.apply(Transaction::new(
-                self.ids.next_transaction_id(),
+        if self.scene_manager.is_some() {
+            let tx_id = self.ids.next_transaction_id();
+            self.apply_scene_transaction(Transaction::new(
+                tx_id,
                 vec![SceneOperation::TransformOp {
                     entity_id,
                     op: TransformOp::Translate(delta),
                 }],
             ));
-            self.sync_runtime();
         }
     }
 
@@ -768,22 +796,27 @@ impl DesktopApp {
         });
         if changed {
             self.inspector.translation = translation;
-            if let Some(manager) = self.scene_manager.as_mut() {
-                let current = manager
-                    .scene()
-                    .get(entity_id)
-                    .map(|entity| entity.transform)
+            if self.scene_manager.is_some() {
+                let current = self
+                    .scene_manager
+                    .as_ref()
+                    .and_then(|manager| {
+                        manager
+                            .scene()
+                            .get(entity_id)
+                            .map(|entity| entity.transform)
+                    })
                     .unwrap_or(Transform::IDENTITY);
                 let mut next = current;
                 next.translation = translation;
-                let _ = manager.apply(Transaction::new(
-                    self.ids.next_transaction_id(),
+                let tx_id = self.ids.next_transaction_id();
+                self.apply_scene_transaction(Transaction::new(
+                    tx_id,
                     vec![SceneOperation::SetTransform {
                         entity_id,
                         transform: next,
                     }],
                 ));
-                self.sync_runtime();
             }
         }
 
@@ -1564,28 +1597,24 @@ impl DesktopApp {
         let Some(proposal) = self.copilot_pending.take() else {
             return;
         };
-        let Some(manager) = self.scene_manager.as_mut() else {
+        let Some(_manager) = self.scene_manager.as_mut() else {
             return;
         };
         let transaction = proposal.into_transaction(self.ids.next_transaction_id());
-        match manager.apply(transaction) {
-            Ok(()) => {
-                self.copilot_preview_manager = None;
-                self.sync_runtime();
-                if let Some(project) = self.project.as_ref() {
-                    let _ = project.save();
-                }
-                self.copilot_messages.push(CopilotMessage {
-                    role: CopilotRole::Assistant,
-                    text: "Applied approved Copilot transaction.".into(),
-                });
+        if self.apply_scene_transaction(transaction) {
+            self.copilot_preview_manager = None;
+            if let Some(project) = self.project.as_ref() {
+                let _ = project.save();
             }
-            Err(err) => {
-                self.copilot_messages.push(CopilotMessage {
-                    role: CopilotRole::Assistant,
-                    text: format!("Commit failed: {err}"),
-                });
-            }
+            self.copilot_messages.push(CopilotMessage {
+                role: CopilotRole::Assistant,
+                text: "Applied approved Copilot transaction.".into(),
+            });
+        } else {
+            self.copilot_messages.push(CopilotMessage {
+                role: CopilotRole::Assistant,
+                text: "Commit failed.".into(),
+            });
         }
     }
 
@@ -1597,6 +1626,296 @@ impl DesktopApp {
             role: CopilotRole::Assistant,
             text: "Discarded Copilot proposal.".into(),
         });
+    }
+
+    fn apply_scene_transaction(&mut self, transaction: Transaction) -> bool {
+        let Some(manager) = self.scene_manager.as_mut() else {
+            return false;
+        };
+        match manager.apply(transaction.clone()) {
+            Ok(()) => {
+                self.sync_runtime();
+                if !self.applying_remote_sync {
+                    self.push_collab_transaction(transaction);
+                }
+                true
+            }
+            Err(err) => {
+                tracing::warn!("scene transaction failed: {err}");
+                false
+            }
+        }
+    }
+
+    fn push_collab_transaction(&mut self, transaction: Transaction) {
+        let Some(client) = self.sync_client.as_ref() else {
+            return;
+        };
+        if let Err(err) = client.push_transaction(transaction) {
+            self.collab_status = format!("Sync push failed: {err}");
+        }
+    }
+
+    fn connect_collab(&mut self) {
+        match SyncClient::connect(SyncClientConfig {
+            workspace_id: self.collab_workspace.clone(),
+            user_name: self.collab_user_name.clone(),
+            server_addr: self.collab_server_addr.clone(),
+        }) {
+            Ok(client) => {
+                self.sync_client = Some(client);
+                self.collab_status = "Connected to sync server".into();
+            }
+            Err(err) => self.collab_status = format!("Connect failed: {err}"),
+        }
+    }
+
+    fn disconnect_collab(&mut self) {
+        self.sync_client = None;
+        self.remote_presence.clear();
+        self.collab_status = "Disconnected from sync server".into();
+    }
+
+    fn update_collab_presence(&mut self) {
+        let Some(client) = self.sync_client.as_ref() else {
+            return;
+        };
+        let selected = self.selection.primary();
+        let cursor = self
+            .viewport_rect
+            .contains(self.viewport_rect.center())
+            .then_some([self.viewport_rect.center().x, self.viewport_rect.center().y]);
+        let _ = client.update_presence(&self.collab_user_name, selected, cursor);
+    }
+
+    fn poll_collab(&mut self) {
+        let Some(client) = self.sync_client.as_mut() else {
+            return;
+        };
+        let events = client.poll_events();
+        for event in events {
+            match event {
+                SyncEvent::Connected { .. } => {
+                    self.collab_status = "Sync session active".into();
+                    self.update_collab_presence();
+                }
+                SyncEvent::LogEntry(entry) => {
+                    self.applying_remote_sync = true;
+                    if let Some(manager) = self.scene_manager.as_mut() {
+                        if let Err(err) = manager.apply(entry.transaction) {
+                            tracing::warn!("remote sync apply failed: {err}");
+                        } else {
+                            self.sync_runtime();
+                        }
+                    }
+                    self.applying_remote_sync = false;
+                }
+                SyncEvent::Presence(presence) => {
+                    self.remote_presence
+                        .retain(|peer| peer.client_id != presence.client_id);
+                    self.remote_presence.push(presence);
+                }
+                SyncEvent::Comment(comment) => {
+                    self.collab_comments
+                        .retain(|existing| existing.id != comment.id);
+                    self.collab_comments.push(comment);
+                    self.persist_collab_store();
+                }
+                SyncEvent::CommentStatus { comment_id, status } => {
+                    if let Some(comment) = self
+                        .collab_comments
+                        .iter_mut()
+                        .find(|comment| comment.id == comment_id)
+                    {
+                        comment.status = status;
+                        self.persist_collab_store();
+                    }
+                }
+                SyncEvent::Proposal(proposal) => {
+                    self.collab_proposals
+                        .retain(|existing| existing.id != proposal.id);
+                    self.collab_proposals.push(proposal);
+                    self.persist_collab_store();
+                }
+                SyncEvent::ProposalStatus {
+                    proposal_id,
+                    status,
+                } => {
+                    if let Some(proposal) = self
+                        .collab_proposals
+                        .iter_mut()
+                        .find(|proposal| proposal.id == proposal_id)
+                    {
+                        proposal.status = status;
+                        self.persist_collab_store();
+                    }
+                }
+                SyncEvent::Error(message) => self.collab_status = message,
+                SyncEvent::Disconnected => {
+                    self.collab_status = "Sync disconnected".into();
+                    self.sync_client = None;
+                }
+            }
+        }
+    }
+
+    fn persist_collab_store(&mut self) {
+        let Some(project) = self.project.as_ref() else {
+            return;
+        };
+        let mut store = CollabStore::default();
+        for comment in &self.collab_comments {
+            store.upsert_comment(comment.clone());
+        }
+        for proposal in &self.collab_proposals {
+            store.upsert_proposal(proposal.clone());
+        }
+        let _ = store.save(project.root().join("collab"));
+    }
+
+    fn add_comment_for_selection(&mut self) {
+        let Some(entity_id) = self.selection.primary() else {
+            self.collab_status = "Select an entity to comment".into();
+            return;
+        };
+        let text = self.collab_comment_input.trim();
+        if text.is_empty() {
+            return;
+        }
+        let comment = SceneComment::open(
+            entity_id,
+            &self.collab_user_name,
+            text,
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_millis() as u64)
+                .unwrap_or(0),
+        );
+        self.collab_comment_input.clear();
+        if let Some(client) = self.sync_client.as_ref() {
+            let _ = client.upsert_comment(comment.clone());
+        }
+        self.collab_comments.push(comment);
+        self.persist_collab_store();
+    }
+
+    fn resolve_comment(&mut self, comment_id: c3d_collab_core::CommentId) {
+        if let Some(client) = self.sync_client.as_ref() {
+            let _ = client.set_comment_status(comment_id, CommentStatus::Resolved);
+        }
+        if let Some(comment) = self
+            .collab_comments
+            .iter_mut()
+            .find(|comment| comment.id == comment_id)
+        {
+            comment.status = CommentStatus::Resolved;
+            self.persist_collab_store();
+        }
+    }
+
+    fn propose_copilot_branch(&mut self) {
+        let Some(proposal) = self.copilot_pending.clone() else {
+            return;
+        };
+        let client_id = self
+            .sync_client
+            .as_ref()
+            .and_then(|client| client.client_id())
+            .unwrap_or_default();
+        let branch = BranchProposal::propose(
+            proposal.summary.clone(),
+            client_id,
+            &self.collab_user_name,
+            proposal.operations.clone(),
+            Some(proposal.provenance.clone()),
+        );
+        if let Some(client) = self.sync_client.as_ref() {
+            let _ = client.share_proposal(branch.clone());
+        }
+        self.collab_proposals.push(branch);
+        self.persist_collab_store();
+        self.collab_status = "Shared Copilot proposal as branch".into();
+    }
+
+    fn draw_collab_panel(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Collaboration");
+        if !self.collab_status.is_empty() {
+            ui.label(&self.collab_status);
+        }
+        ui.horizontal(|ui| {
+            ui.label("User");
+            ui.text_edit_singleline(&mut self.collab_user_name);
+            ui.label("Server");
+            ui.text_edit_singleline(&mut self.collab_server_addr);
+        });
+        ui.horizontal(|ui| {
+            if ui.button("Connect").clicked() {
+                self.connect_collab();
+            }
+            if ui.button("Disconnect").clicked() {
+                self.disconnect_collab();
+            }
+        });
+
+        ui.separator();
+        ui.label("Presence");
+        if self.remote_presence.is_empty() {
+            ui.label("No remote collaborators");
+        } else {
+            for peer in &self.remote_presence {
+                let selection = peer
+                    .selected_entity
+                    .map(|entity| entity.to_string())
+                    .unwrap_or_else(|| "none".into());
+                ui.label(format!("{} -> selection {selection}", peer.user_name));
+            }
+        }
+
+        ui.separator();
+        ui.label("Comments");
+        ui.horizontal(|ui| {
+            ui.text_edit_singleline(&mut self.collab_comment_input);
+            if ui.button("Add").clicked() {
+                self.add_comment_for_selection();
+            }
+        });
+        if let Some(entity_id) = self.selection.primary() {
+            let comments: Vec<_> = self
+                .collab_comments
+                .iter()
+                .filter(|comment| comment.entity_id == entity_id)
+                .cloned()
+                .collect();
+            let mut resolve_ids = Vec::new();
+            for comment in &comments {
+                ui.horizontal(|ui| {
+                    ui.label(format!(
+                        "[{:?}] {}: {}",
+                        comment.status, comment.author_name, comment.text
+                    ));
+                    if matches!(comment.status, CommentStatus::Open)
+                        && ui.button("Resolve").clicked()
+                    {
+                        resolve_ids.push(comment.id);
+                    }
+                });
+            }
+            for comment_id in resolve_ids {
+                self.resolve_comment(comment_id);
+            }
+        }
+
+        ui.separator();
+        ui.label("Branch Proposals");
+        for proposal in &self.collab_proposals {
+            ui.label(format!(
+                "{} by {} [{:?}] ({} ops)",
+                proposal.title,
+                proposal.author_name,
+                proposal.status,
+                proposal.operations.len()
+            ));
+        }
     }
 
     fn draw_copilot_panel(&mut self, ui: &mut egui::Ui) {
@@ -1643,6 +1962,9 @@ impl DesktopApp {
                 }
                 if ui.button("Reject").clicked() {
                     self.reject_copilot_proposal();
+                }
+                if ui.button("Propose Branch").clicked() {
+                    self.propose_copilot_branch();
                 }
             });
             if self.copilot_preview_manager.is_some() {
@@ -1702,6 +2024,8 @@ impl DesktopApp {
         self.frame_ms = now.duration_since(self.last_frame).as_secs_f32() * 1000.0;
         self.last_frame = now;
         self.tick_robotics_mock();
+        self.poll_collab();
+        self.update_collab_presence();
 
         let window = self.window.clone().expect("window");
         let egui_ctx = self.egui_ctx.clone().expect("egui ctx");
@@ -1750,6 +2074,11 @@ impl DesktopApp {
                 .default_width(260.0)
                 .resizable(true)
                 .show(ctx, |ui| self.draw_inspector(ui));
+
+            egui::TopBottomPanel::bottom("collaboration")
+                .default_height(180.0)
+                .resizable(true)
+                .show(ctx, |ui| self.draw_collab_panel(ui));
 
             egui::TopBottomPanel::bottom("copilot")
                 .default_height(220.0)

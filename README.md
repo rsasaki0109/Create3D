@@ -4,7 +4,7 @@
 
 Create3D is an AI-native, GPU-native, cloud-native 3D creation platform built in Rust.
 
-This repository is in **Month 10** phase: robot model schema, URDF import, ROS2 sidecar protocol, mock bridge, TF/joint visualization, and joint limit validation.
+This repository is in **Month 11** phase: operation log sync, presence, anchored comments, branch/proposal model, and conflict-safe transform synchronization.
 
 ## Architecture
 
@@ -29,12 +29,13 @@ cargo run -p xtask -- check
 cargo run -p create3d-desktop
 ```
 
-The window includes Month 5/6 interaction tools plus Month 7 point cloud, Month 8 Gaussian splat, Month 9 Copilot, and Month 10 robotics features:
+The window includes Month 5/6 interaction tools plus Month 7 point cloud, Month 8 Gaussian splat, Month 9 Copilot, Month 10 robotics, and Month 11 collaboration features:
 
 - **Import PLY**: toolbar button or command palette (`Import PLY Point Cloud`); auto-detects 3DGS PLY when using the generic PLY button
 - **Import 3DGS PLY**: toolbar button or command palette (`Import 3DGS PLY`)
 - **Import URDF**: toolbar button or command palette (`Import URDF`); builds link/joint hierarchy with primitive visuals
 - **Robotics panel**: topic list, TF tree, live joint states, mock ROS2 bridge start/stop
+- **Collaboration panel**: sync server connect, presence, entity comments, branch proposals (including Copilot)
 - **Point cloud viewport**: chunked GPU upload with residency (only nearby chunks are uploaded)
 - **Gaussian splat viewport**: alpha-blended splat quads with opacity/size scales and crop filters
 - **Copilot panel**: ask scene questions, preview AI-proposed transactions, approve/reject before commit
@@ -92,6 +93,14 @@ cargo run -p create3d-cli -- import-urdf \
   --name my-robot
 ```
 
+Run a local collaboration sync server:
+
+```bash
+cargo run -p create3d-sync-server -- --bind 127.0.0.1:9731 --workspace default-workspace
+```
+
+Open two desktop editor instances, connect both to the sync server, and move a shared selection to sync transforms.
+
 Project layout:
 
 ```text
@@ -116,9 +125,13 @@ Create3D/
 ├── robotics/
 │   ├── c3d-robotics-core/    # ROS2 bridge IPC, mock bridge, kinematics, TF tree
 │   └── c3d-urdf/             # URDF parser and import planning
+├── collaboration/
+│   ├── c3d-collab-core/     # operation log entries, comments, presence, proposals
+│   └── c3d-sync/             # sync protocol, hub, server, client, conflict policy
 ├── apps/
 │   ├── create3d-desktop/    # winit + egui editor shell
-│   └── create3d-cli/        # import and project commands
+│   ├── create3d-cli/        # import and project commands
+│   └── create3d-sync-server/ # TCP sync server prototype
 ├── asset/
 │   ├── c3d-asset-db/       # content hash + blob storage + index
 │   ├── c3d-asset-mesh/     # mesh asset blobs
