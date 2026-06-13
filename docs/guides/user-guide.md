@@ -1,6 +1,6 @@
-# User guide (Alpha)
+# User guide (Beta)
 
-Create3D Alpha is a Rust-native 3D editor prototype. SceneDB is authoritative; all edits are typed transactions.
+Create3D Beta is a Rust-native 3D editor prototype. SceneDB is authoritative; all edits are typed transactions.
 
 ## Quick start
 

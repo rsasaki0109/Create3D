@@ -2285,7 +2285,7 @@ impl DesktopApp {
 
             egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
                 ui.label(format!(
-                    "Create3D Alpha {C3D_VERSION} | frame {:.1} ms | Ctrl+Shift+P palette",
+                    "Create3D Beta {C3D_VERSION} | frame {:.1} ms | Ctrl+Shift+P palette",
                     self.frame_ms
                 ));
                 if self.scene_dirty {

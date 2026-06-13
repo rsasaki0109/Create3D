@@ -1,3 +1,34 @@
+# Create3D Beta (0.1.0-beta)
+
+Public Beta release after the Beta entry milestone.
+
+## Highlights
+
+- **Open Project** — load any Create3D project directory from the desktop toolbar or command palette
+- **GLB export** — `c3d-export-gltf`, CLI `export-gltf`, and desktop **Export GLB** snapshot
+- **Copilot API key stub** — `CREATE3D_COPILOT_API_KEY` / desktop field; remote provider still uses mock responses
+- **Release CI** — GitHub Actions builds Linux release binaries on `v*` tags via `xtask package`
+
+## Build
+
+```bash
+cargo run -p xtask -- check
+cargo run -p xtask -- package
+```
+
+## Tag
+
+```bash
+git tag -a v0.1.0-beta -m "Create3D Beta release"
+git push origin v0.1.0-beta
+```
+
+## Known limitations
+
+See `Create3D/docs/known-limitations.md`.
+
+---
+
 # Create3D Alpha (0.1.0-alpha)
 
 Public Alpha release after the Month 12 hardening milestone.
@@ -12,20 +43,9 @@ Public Alpha release after the Month 12 hardening milestone.
 - `xtask samples`, `xtask bench`, and `xtask package` developer tasks
 - User, plugin, AI tool, and robotics guides
 
-## Build
-
-```bash
-cargo run -p xtask -- check
-cargo run -p xtask -- package
-```
-
 ## Tag
 
 ```bash
 git tag -a v0.1.0-alpha -m "Create3D Alpha release"
 git push origin v0.1.0-alpha
 ```
-
-## Known limitations
-
-See `Create3D/docs/known-limitations.md`.

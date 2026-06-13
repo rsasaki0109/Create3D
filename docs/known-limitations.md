@@ -1,11 +1,11 @@
-# Known limitations (Alpha)
+# Known limitations (Beta)
 
-Create3D **0.1.0-alpha** is a public prototype. Expect rough edges.
+Create3D **0.1.0-beta** is a public prototype. Expect rough edges.
 
 ## Editor
 
 - Desktop persists the demo project under the system temp directory by default.
-- No multi-document UI; one project per editor instance.
+- No multi-document UI; one project at a time.
 - Undo/redo covers scene transactions but not asset blob history.
 - UI polish is functional, not production-grade.
 
@@ -20,10 +20,13 @@ Create3D **0.1.0-alpha** is a public prototype. Expect rough edges.
 - PLY / 3DGS: ASCII-oriented importers; binary PLY support is limited.
 - URDF: preview arm and common links; mesh packages with external assets may need manual path fixes.
 
+## Export
+
+- GLB export writes mesh hierarchy snapshots only; materials, animations, and point clouds are not exported yet.
+
 ## AI
 
-- Mock local Copilot provider only.
-- No remote model integration in Alpha.
+- Copilot accepts an API key but still uses the mock local provider for responses.
 - AI cannot perform destructive geometry ops through collaboration sync.
 
 ## Collaboration
@@ -34,18 +37,18 @@ Create3D **0.1.0-alpha** is a public prototype. Expect rough edges.
 
 ## Robotics
 
-- Mock bridge only in default Alpha workflow.
+- Mock bridge only in the default Beta workflow.
 - Real ROS2 sidecar is architecture-ready but not bundled as a turnkey installer.
 
 ## Plugins
 
 - No stable public plugin ABI.
-- Internal Rust crates may change without notice until post-Alpha stabilization.
+- Internal Rust crates may change without notice until post-Beta stabilization.
 
 ## Packaging
 
 - `cargo run -p xtask -- package` builds release binaries locally.
-- No signed installers or auto-update channel in Alpha.
+- CI uploads unsigned Linux binaries on `v*` tags; no signed installers or auto-update channel yet.
 
 ## Reporting issues
 
