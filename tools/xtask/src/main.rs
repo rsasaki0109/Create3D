@@ -167,7 +167,12 @@ fn run_bench(
 }
 
 fn run_package(workspace_root: &Path) -> io::Result<std::process::ExitStatus> {
-    let apps = ["create3d-desktop", "create3d-cli", "create3d-sync-server"];
+    let apps = [
+        "create3d-desktop",
+        "create3d-cli",
+        "create3d-sync-server",
+        "create3d-ros2-bridge",
+    ];
     for app in apps {
         let status = run_cargo(workspace_root, &["build", "-p", app, "--release"])?;
         if !status.success() {

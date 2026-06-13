@@ -1,0 +1,23 @@
+[package]
+name = "c3d-export-usd"
+description = "Create3D USDA scene snapshot exporter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+c3d-asset-material.workspace = true
+c3d-asset-mesh.workspace = true
+c3d-core = { workspace = true, features = ["serde"] }
+c3d-scene-doc.workspace = true
+c3d-scene-schema.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+c3d-project.workspace = true
+tempfile = "3"
+
+[lints]
+workspace = true

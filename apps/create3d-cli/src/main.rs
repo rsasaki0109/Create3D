@@ -50,6 +50,15 @@ enum Command {
         #[arg(long)]
         output: PathBuf,
     },
+    /// Export mesh entities from a project to a USDA snapshot.
+    ExportUsd {
+        /// Existing project directory.
+        #[arg(long)]
+        project: PathBuf,
+        /// Output USDA file path.
+        #[arg(long)]
+        output: PathBuf,
+    },
     /// Import a glTF/GLB file into a new or existing project.
     Import {
         /// glTF/GLB source file.
@@ -123,6 +132,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             iterations,
         } => bench_scene_replay(entities, iterations),
         Command::ExportGltf { project, output } => export_gltf(project, output),
+        Command::ExportUsd { project, output } => export_usd(project, output),
         Command::Import {
             input,
             output,
@@ -242,6 +252,19 @@ fn export_gltf(project: PathBuf, output: PathBuf) -> Result<(), Box<dyn std::err
         "Exported {} meshes ({} nodes) to {} ({} bytes)",
         report.mesh_count,
         report.node_count,
+        output.display(),
+        report.byte_length
+    );
+    Ok(())
+}
+
+fn export_usd(project: PathBuf, output: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    let project = Project::open(&project)?;
+    let report = project.export_usd(&output)?;
+    println!(
+        "Exported {} meshes ({} xforms) to {} ({} bytes)",
+        report.mesh_count,
+        report.prim_count,
         output.display(),
         report.byte_length
     );

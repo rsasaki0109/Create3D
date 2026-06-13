@@ -452,6 +452,10 @@ impl DesktopApp {
                 self.export_project_glb();
                 None
             }
+            "scene.export_usd" => {
+                self.export_project_usd();
+                None
+            }
             "project.save" => {
                 self.persist_project();
                 self.project_status = "Project saved".into();
@@ -1942,6 +1946,31 @@ impl DesktopApp {
         }
     }
 
+    fn export_project_usd(&mut self) {
+        let Some(project) = self.project.as_ref() else {
+            self.project_status = "No project loaded".into();
+            return;
+        };
+        let Some(path) = rfd::FileDialog::new()
+            .add_filter("USD ASCII", &["usda", "usd"])
+            .set_file_name("snapshot.usda")
+            .save_file()
+        else {
+            return;
+        };
+        match project.export_usd(&path) {
+            Ok(report) => {
+                self.project_status = format!(
+                    "Exported {} meshes to {} ({} bytes)",
+                    report.mesh_count,
+                    path.display(),
+                    report.byte_length
+                );
+            }
+            Err(err) => self.project_status = format!("Export failed: {err}"),
+        }
+    }
+
     fn push_collab_transaction(&mut self, transaction: Transaction) {
         let Some(client) = self.sync_client.as_ref() else {
             return;
@@ -2432,6 +2461,9 @@ impl DesktopApp {
                 }
                 if ui.button("Export GLB").clicked() {
                     self.export_project_glb();
+                }
+                if ui.button("Export USD").clicked() {
+                    self.export_project_usd();
                 }
                 ui.separator();
                 if ui.button("Import GLB").clicked() {

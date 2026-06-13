@@ -37,3 +37,4 @@ jobs:
             target/release/create3d-desktop
             target/release/create3d-cli
             target/release/create3d-sync-server
+            target/release/create3d-ros2-bridge

@@ -1,3 +1,34 @@
+# Create3D Beta (0.1.1-beta)
+
+Post-Beta update: remote Copilot LLM, ROS2 sidecar IPC, and USDA export.
+
+## Highlights
+
+- **Remote LLM Copilot** — OpenAI-compatible chat completions with typed tool calls (`CREATE3D_COPILOT_API_KEY`, optional `_BASE_URL` / `_MODEL`)
+- **ROS2 sidecar skeleton** — `create3d-ros2-bridge` TCP JSONL IPC; desktop **Start Sidecar Bridge**
+- **USDA export** — `c3d-export-usd`, CLI `export-usd`, and desktop **Export USD** mesh hierarchy snapshots
+- **Release CI** — unchanged; builds Linux release binaries on `v*` tags via `xtask package`
+
+## Build
+
+```bash
+cargo run -p xtask -- check
+cargo run -p xtask -- package
+```
+
+## Tag
+
+```bash
+git tag -a v0.1.1-beta -m "Create3D Beta 0.1.1 release"
+git push origin v0.1.1-beta
+```
+
+## Known limitations
+
+See `Create3D/docs/known-limitations.md`.
+
+---
+
 # Create3D Beta (0.1.0-beta)
 
 Public Beta release after the Beta entry milestone.

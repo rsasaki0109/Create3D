@@ -41,6 +41,11 @@ impl CommandRegistry {
                     shortcut: None,
                 },
                 EditorCommand {
+                    id: "scene.export_usd",
+                    label: "Export USD Snapshot",
+                    shortcut: None,
+                },
+                EditorCommand {
                     id: "project.save",
                     label: "Save Project",
                     shortcut: None,

@@ -4,7 +4,7 @@
 
 Create3D is an AI-native, GPU-native, cloud-native 3D creation platform built in Rust.
 
-This repository is in **Beta (0.1.0-beta)**: open any project directory, export GLB snapshots, remote Copilot LLM integration, and CI release artifacts on version tags.
+This repository is in **Beta (0.1.1-beta)**: open any project directory, export GLB/USD snapshots, remote Copilot LLM integration, ROS2 sidecar IPC, and CI release artifacts on version tags.
 
 ## Architecture
 
@@ -116,15 +116,19 @@ cargo run -p create3d-cli -- create \
 
 Sample projects live under `samples/` (see `samples/README.md`).
 
-Export a mesh snapshot:
+Export mesh snapshots:
 
 ```bash
 cargo run -p create3d-cli -- export-gltf \
   --project /path/to/project.c3d \
   --output /path/to/snapshot.glb
+
+cargo run -p create3d-cli -- export-usd \
+  --project /path/to/project.c3d \
+  --output /path/to/snapshot.usda
 ```
 
-In the desktop editor, use **Open Project** to load a sample or your own project directory, and **Export GLB** to write a snapshot.
+In the desktop editor, use **Open Project** to load a sample or your own project directory, and **Export GLB** / **Export USD** to write snapshots.
 
 ## Alpha guides
 
@@ -169,6 +173,7 @@ Create3D/
 │   └── create3d-sync-server/ # TCP sync server prototype
 ├── asset/
 │   ├── c3d-export-gltf/    # GLB snapshot exporter
+│   ├── c3d-export-usd/     # USDA snapshot exporter
 │   ├── c3d-asset-db/       # content hash + blob storage + index
 │   ├── c3d-asset-mesh/     # mesh asset blobs
 │   ├── c3d-asset-material/ # basic PBR material blobs + material graph
