@@ -37,7 +37,7 @@ The window includes Month 5/6 interaction tools plus Month 7 point cloud, Month 
 - **Import PLY**: toolbar button or command palette (`Import PLY Point Cloud`); auto-detects 3DGS PLY when using the generic PLY button
 - **Import 3DGS PLY**: toolbar button or command palette (`Import 3DGS PLY`)
 - **Import URDF**: toolbar button or command palette (`Import URDF`); builds link/joint hierarchy with primitive visuals
-- **Robotics panel**: topic list, TF tree, live joint states, mock ROS2 bridge start/stop
+- **Robotics panel**: topic list, TF tree, live joint states, mock bridge, sidecar bridge start/stop
 - **Collaboration panel**: sync server connect, presence, entity comments, branch proposals (including Copilot)
 - **Point cloud viewport**: chunked GPU upload with residency (only nearby chunks are uploaded)
 - **Gaussian splat viewport**: alpha-blended splat quads with opacity/size scales and crop filters
@@ -165,6 +165,7 @@ Create3D/
 ├── apps/
 │   ├── create3d-desktop/    # winit + egui editor shell
 │   ├── create3d-cli/        # import and project commands
+│   ├── create3d-ros2-bridge/ # TCP JSONL sidecar for robotics IPC
 │   └── create3d-sync-server/ # TCP sync server prototype
 ├── asset/
 │   ├── c3d-export-gltf/    # GLB snapshot exporter

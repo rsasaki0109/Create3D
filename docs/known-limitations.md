@@ -39,8 +39,9 @@ Create3D **0.1.0-beta** is a public prototype. Expect rough edges.
 
 ## Robotics
 
-- Mock bridge only in the default Beta workflow.
-- Real ROS2 sidecar is architecture-ready but not bundled as a turnkey installer.
+- In-process mock bridge for synthetic joint states without ROS2 installed.
+- TCP sidecar bridge (`create3d-ros2-bridge`) over JSONL IPC; desktop can spawn or connect to an external sidecar.
+- Live ROS2 topic subscription (`--ros2`) is reserved for a future release; Beta sidecar mock mode validates the IPC path.
 
 ## Plugins
 

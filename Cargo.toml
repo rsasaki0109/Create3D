@@ -23,6 +23,7 @@ members = [
     "editor/c3d-viewport",
     "apps/create3d-desktop",
     "apps/create3d-cli",
+    "apps/create3d-ros2-bridge",
     "tools/xtask",
     "tools/readme-preview",
     "tests/golden-scenes",

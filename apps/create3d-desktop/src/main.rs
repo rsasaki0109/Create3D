@@ -1,8 +1,9 @@
 //! Create3D desktop editor shell.
 
 use std::path::PathBuf;
+use std::process::Command;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use c3d_ai_copilot::{
     CopilotEngine, CopilotProposal, CopilotResponse, RemoteLlmConfig, RemoteLlmProvider,
@@ -21,7 +22,9 @@ use c3d_project::{Project, ProjectTemplate, RecoverySnapshot};
 use c3d_rhi::Extent2D;
 use c3d_rhi_wgpu::WgpuBackend;
 use c3d_robotics_core::{
-    apply_joint_state, robot_tf_trees, JointStateUpdate, MockBridge, TfTreeNode, TopicInfo,
+    apply_joint_state, primary_robot_bridge_target, robot_tf_trees, BridgeMessage,
+    JointStateUpdate, MockBridge, SidecarClient, SidecarClientConfig, TfTreeNode, TopicInfo,
+    DEFAULT_SIDECAR_ADDR,
 };
 use c3d_scene_ops::{SceneOperation, Transaction, TransactionManager};
 use c3d_scene_schema::{
@@ -82,8 +85,12 @@ struct DesktopApp {
     copilot_messages: Vec<CopilotMessage>,
     copilot_pending: Option<CopilotProposal>,
     copilot_preview_manager: Option<TransactionManager>,
-    robotics_mock_running: bool,
+    robotics_bridge_mode: RoboticsBridgeMode,
     robotics_mock_bridge: Option<MockBridge>,
+    robotics_sidecar: Option<SidecarClient>,
+    robotics_bridge_addr: String,
+    robotics_robot_name: String,
+    robotics_joint_names: Vec<String>,
     robotics_topics: Vec<TopicInfo>,
     robotics_joint_states: Vec<(String, f64)>,
     robotics_status: String,
@@ -102,6 +109,13 @@ struct DesktopApp {
     recovery_snapshot: Option<RecoverySnapshot>,
     project_status: String,
     copilot_api_key: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RoboticsBridgeMode {
+    Off,
+    Mock,
+    Sidecar,
 }
 
 #[derive(Debug, Clone)]
@@ -193,8 +207,13 @@ impl Default for DesktopApp {
             copilot_pending: None,
             copilot_preview_manager: None,
             copilot_api_key: std::env::var("CREATE3D_COPILOT_API_KEY").unwrap_or_default(),
-            robotics_mock_running: false,
+            robotics_bridge_mode: RoboticsBridgeMode::Off,
             robotics_mock_bridge: None,
+            robotics_sidecar: None,
+            robotics_bridge_addr: std::env::var("CREATE3D_ROS2_BRIDGE_ADDR")
+                .unwrap_or_else(|_| DEFAULT_SIDECAR_ADDR.into()),
+            robotics_robot_name: String::new(),
+            robotics_joint_names: Vec::new(),
             robotics_topics: Vec::new(),
             robotics_joint_states: Vec::new(),
             robotics_status: String::new(),
@@ -1206,15 +1225,7 @@ impl DesktopApp {
                 self.scene_manager = Some(TransactionManager::new(scene));
                 self.selection.select(report.root_entity_id);
                 self.mesh_cache.invalidate_all();
-                self.robotics_mock_bridge = Some(MockBridge::new(
-                    report.robot_name.clone(),
-                    report.joint_names.clone(),
-                ));
-                self.robotics_joint_states = report
-                    .joint_names
-                    .iter()
-                    .map(|name| (name.clone(), 0.0))
-                    .collect();
+                self.refresh_robotics_targets();
                 self.robotics_status = format!(
                     "Imported robot `{}` with {} links",
                     report.robot_name,
@@ -1253,35 +1264,115 @@ impl DesktopApp {
         let _ = entity_id;
     }
 
+    fn refresh_robotics_targets(&mut self) {
+        let Some(manager) = self.scene_manager.as_ref() else {
+            return;
+        };
+        if let Some(target) = primary_robot_bridge_target(manager.scene()) {
+            self.robotics_robot_name = target.robot_name.clone();
+            self.robotics_joint_names = target.joint_names.clone();
+            self.robotics_mock_bridge = Some(MockBridge::new(
+                target.robot_name,
+                target.joint_names.clone(),
+            ));
+            self.robotics_joint_states = target
+                .joint_names
+                .iter()
+                .map(|name| (name.clone(), 0.0))
+                .collect();
+        } else {
+            self.robotics_robot_name.clear();
+            self.robotics_joint_names.clear();
+            self.robotics_mock_bridge = None;
+            self.robotics_joint_states.clear();
+        }
+    }
+
+    fn sidecar_binary(&self) -> String {
+        std::env::var("CREATE3D_ROS2_BRIDGE_BIN").unwrap_or_else(|_| "create3d-ros2-bridge".into())
+    }
+
+    fn spawn_sidecar_process(&self) -> Result<(), String> {
+        Command::new(self.sidecar_binary())
+            .arg("--listen")
+            .arg(&self.robotics_bridge_addr)
+            .arg("--robot-name")
+            .arg(&self.robotics_robot_name)
+            .arg("--joint-names")
+            .arg(self.robotics_joint_names.join(","))
+            .spawn()
+            .map(|_| ())
+            .map_err(|err| format!("failed to spawn sidecar: {err}"))
+    }
+
     fn start_robotics_mock(&mut self) {
         if self.robotics_mock_bridge.is_none() {
             self.robotics_status = "Import a URDF robot before starting the mock bridge".into();
             return;
         }
-        self.robotics_mock_running = true;
+        self.stop_robotics_bridge();
+        self.robotics_bridge_mode = RoboticsBridgeMode::Mock;
         self.robotics_status = "Mock ROS2 bridge running".into();
     }
 
-    fn stop_robotics_mock(&mut self) {
-        self.robotics_mock_running = false;
-        self.robotics_status = "Mock ROS2 bridge stopped".into();
-    }
-
-    fn tick_robotics_mock(&mut self) {
-        if !self.robotics_mock_running {
+    fn start_robotics_sidecar(&mut self) {
+        if self.robotics_robot_name.is_empty() || self.robotics_joint_names.is_empty() {
+            self.robotics_status =
+                "Import or open a URDF robot before starting the sidecar bridge".into();
             return;
         }
-        let Some(bridge) = self.robotics_mock_bridge.as_mut() else {
-            return;
+        self.stop_robotics_bridge();
+
+        let config = SidecarClientConfig {
+            server_addr: self.robotics_bridge_addr.clone(),
+            client_id: "create3d-desktop".into(),
         };
-        let envelopes = bridge.next_envelopes();
+
+        if let Ok(client) = SidecarClient::connect(config.clone()) {
+            self.robotics_sidecar = Some(client);
+            self.robotics_bridge_mode = RoboticsBridgeMode::Sidecar;
+            self.robotics_status =
+                format!("Sidecar bridge connected at {}", self.robotics_bridge_addr);
+            return;
+        }
+
+        if let Err(err) = self.spawn_sidecar_process() {
+            self.robotics_status = err;
+            return;
+        }
+
+        std::thread::sleep(Duration::from_millis(250));
+        match SidecarClient::connect(config) {
+            Ok(client) => {
+                self.robotics_sidecar = Some(client);
+                self.robotics_bridge_mode = RoboticsBridgeMode::Sidecar;
+                self.robotics_status = format!(
+                    "Sidecar bridge spawned and connected at {}",
+                    self.robotics_bridge_addr
+                );
+            }
+            Err(err) => {
+                self.robotics_status = format!("Sidecar spawned but connect failed: {err}");
+            }
+        }
+    }
+
+    fn stop_robotics_bridge(&mut self) {
+        if let Some(mut client) = self.robotics_sidecar.take() {
+            client.disconnect();
+        }
+        self.robotics_bridge_mode = RoboticsBridgeMode::Off;
+        self.robotics_status = "Robotics bridge stopped".into();
+    }
+
+    fn apply_bridge_envelopes(&mut self, envelopes: Vec<c3d_robotics_core::BridgeEnvelope>) {
         let mut updates = Vec::new();
         for envelope in envelopes {
             match envelope.message {
-                c3d_robotics_core::BridgeMessage::TopicList { topics } => {
+                BridgeMessage::TopicList { topics } => {
                     self.robotics_topics = topics;
                 }
-                c3d_robotics_core::BridgeMessage::JointState(message) => {
+                BridgeMessage::JointState(message) => {
                     self.robotics_joint_states = message
                         .joint_names
                         .iter()
@@ -1295,8 +1386,7 @@ impl DesktopApp {
                         });
                     }
                 }
-                c3d_robotics_core::BridgeMessage::TfTree(_) => {}
-                c3d_robotics_core::BridgeMessage::Hello { .. } => {}
+                BridgeMessage::TfTree(_) | BridgeMessage::Hello { .. } => {}
             }
         }
         if updates.is_empty() {
@@ -1304,10 +1394,34 @@ impl DesktopApp {
         }
         if let Some(manager) = self.scene_manager.as_mut() {
             if let Err(err) = c3d_robotics_core::apply_joint_states(manager.scene_mut(), &updates) {
-                tracing::warn!("mock joint update failed: {err}");
+                tracing::warn!("bridge joint update failed: {err}");
                 return;
             }
             self.sync_runtime();
+        }
+    }
+
+    fn tick_robotics_bridge(&mut self) {
+        match self.robotics_bridge_mode {
+            RoboticsBridgeMode::Off => {}
+            RoboticsBridgeMode::Mock => {
+                let Some(bridge) = self.robotics_mock_bridge.as_mut() else {
+                    return;
+                };
+                let envelopes = bridge.next_envelopes();
+                self.apply_bridge_envelopes(envelopes);
+            }
+            RoboticsBridgeMode::Sidecar => {
+                let envelopes = self
+                    .robotics_sidecar
+                    .as_mut()
+                    .map(SidecarClient::poll_envelopes)
+                    .unwrap_or_default();
+                if envelopes.is_empty() {
+                    return;
+                }
+                self.apply_bridge_envelopes(envelopes);
+            }
         }
     }
 
@@ -1320,10 +1434,14 @@ impl DesktopApp {
             if ui.button("Start Mock Bridge").clicked() {
                 self.start_robotics_mock();
             }
-            if ui.button("Stop Mock Bridge").clicked() {
-                self.stop_robotics_mock();
+            if ui.button("Start Sidecar Bridge").clicked() {
+                self.start_robotics_sidecar();
+            }
+            if ui.button("Stop Bridge").clicked() {
+                self.stop_robotics_bridge();
             }
         });
+        ui.label(format!("Sidecar: {}", self.robotics_bridge_addr));
 
         ui.separator();
         ui.label("Topics");
@@ -1750,6 +1868,7 @@ impl DesktopApp {
         match Project::open(&path) {
             Ok(project) => {
                 self.disconnect_collab();
+                self.stop_robotics_bridge();
                 self.copilot_preview_manager = None;
                 self.copilot_pending = None;
                 let scene = project.scene().clone();
@@ -1779,6 +1898,7 @@ impl DesktopApp {
                         });
                 }
                 project_scene_to_ecs(&scene, &mut self.runtime);
+                self.refresh_robotics_targets();
                 self.demo_entity = self.project.as_ref().and_then(|project| {
                     project.scene().entities().find_map(|entity| {
                         entity
@@ -2210,7 +2330,7 @@ impl DesktopApp {
         let now = Instant::now();
         self.frame_ms = now.duration_since(self.last_frame).as_secs_f32() * 1000.0;
         self.last_frame = now;
-        self.tick_robotics_mock();
+        self.tick_robotics_bridge();
         self.poll_collab();
         self.update_collab_presence();
         self.tick_autosave();

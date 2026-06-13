@@ -1289,6 +1289,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "create3d-ros2-bridge"
+version = "0.1.0-beta"
+dependencies = [
+ "c3d-core",
+ "c3d-robotics-core",
+ "clap",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "create3d-sync-server"
 version = "0.1.0-beta"
 dependencies = [

@@ -1,6 +1,6 @@
-# Robotics guide (Alpha)
+# Robotics guide (Beta)
 
-Create3D Alpha includes URDF import, kinematic hierarchy visualization, a mock ROS2 bridge, and TF/joint inspection.
+Create3D Beta includes URDF import, kinematic hierarchy visualization, in-process mock bridge, TCP sidecar bridge, and TF/joint inspection.
 
 ## Import a robot
 
@@ -39,9 +39,30 @@ URDF import creates:
 
 The mock bridge publishes synthetic joint states so you can verify live transform updates and TF tree output without ROS2 installed.
 
-## Real ROS2 bridge (optional)
+## Sidecar bridge (TCP IPC)
 
-The architecture targets a sidecar ROS2 bridge over IPC. Alpha ships the protocol types in `c3d-robotics-core` and mock tests; production ROS2 wiring is environment-specific and not required for Alpha acceptance.
+Beta ships `create3d-ros2-bridge`, a sidecar process that speaks the same JSONL protocol as the mock bridge over TCP.
+
+Manual sidecar:
+
+```bash
+cargo run -p create3d-ros2-bridge -- \
+  --listen 127.0.0.1:9741 \
+  --robot-name preview_arm \
+  --joint-names shoulder,elbow
+```
+
+Desktop:
+
+1. Import or open a URDF scene.
+2. Open the **Robotics** panel.
+3. Click **Start Sidecar Bridge**.
+
+The editor connects to `CREATE3D_ROS2_BRIDGE_ADDR` (default `127.0.0.1:9741`). If nothing is listening, it tries to spawn `CREATE3D_ROS2_BRIDGE_BIN` (default `create3d-ros2-bridge`) with the scene's robot/joint names.
+
+Sidecar mock mode mirrors the in-process mock bridge. A future `--ros2` mode will subscribe to live ROS2 topics in environments with ROS2 installed.
+
+Protocol types live in `robotics/c3d-robotics-core` (`BridgeEnvelope`, `SidecarClient`).
 
 ## TF tree
 
