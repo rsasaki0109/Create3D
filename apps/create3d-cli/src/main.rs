@@ -263,9 +263,10 @@ fn export_usd(project: PathBuf, output: PathBuf) -> Result<(), Box<dyn std::erro
     let project = Project::open(&project)?;
     let report = project.export_usd(&output)?;
     println!(
-        "Exported {} meshes ({} xforms) to {} ({} bytes)",
+        "Exported {} meshes ({} xforms, {} textures) to {} ({} bytes)",
         report.mesh_count,
         report.prim_count,
+        report.texture_count,
         output.display(),
         report.byte_length
     );

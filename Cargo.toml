@@ -40,7 +40,7 @@ members = [
 default-members = ["engine/c3d-core"]
 
 [workspace.package]
-version = "0.1.1-beta"
+version = "0.1.2-beta"
 edition = "2021"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"

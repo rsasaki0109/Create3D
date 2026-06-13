@@ -1,6 +1,6 @@
 # Known limitations (Beta)
 
-Create3D **0.1.1-beta** is a public prototype. Expect rough edges.
+Create3D **0.1.2-beta** is a public prototype. Expect rough edges.
 
 ## Editor
 

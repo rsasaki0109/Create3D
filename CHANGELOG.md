@@ -1,3 +1,33 @@
+# Create3D Beta (0.1.2-beta)
+
+Export polish: GLB textures/UVs and USDA material parity.
+
+## Highlights
+
+- **GLB export materials** — embedded base-color textures and `TEXCOORD_0` when mesh UVs are present
+- **USDA export materials** — UsdPreviewSurface / UsdUVTexture with sidecar texture files and UV primvars
+- **Release CI** — unchanged; builds Linux release binaries on `v*` tags via `xtask package`
+
+## Build
+
+```bash
+cargo run -p xtask -- check
+cargo run -p xtask -- package
+```
+
+## Tag
+
+```bash
+git tag -a v0.1.2-beta -m "Create3D Beta 0.1.2 release"
+git push origin v0.1.2-beta
+```
+
+## Known limitations
+
+See `Create3D/docs/known-limitations.md`.
+
+---
+
 # Create3D Beta (0.1.1-beta)
 
 Post-Beta update: remote Copilot LLM, ROS2 sidecar IPC, and USDA export.
