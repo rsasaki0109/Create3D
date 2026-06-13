@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.94
+      - uses: Swatinem/rust-cache@v2
+      - name: Install desktop build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libvulkan-dev \
+            libxkbcommon-dev \
+            libwayland-dev \
+            libxrandr-dev \
+            libxi-dev \
+            libasound2-dev
+      - name: Build release binaries
+        run: cargo run -p xtask -- package
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: create3d-linux-release
+          path: |
+            target/release/create3d-desktop
+            target/release/create3d-cli
+            target/release/create3d-sync-server

@@ -4,7 +4,7 @@
 
 Create3D is an AI-native, GPU-native, cloud-native 3D creation platform built in Rust.
 
-This repository is in **Alpha (0.1.0-alpha)** — Month 12 hardening: templates, samples, autosave recovery, benchmarks, guides, and release packaging.
+This repository is in **Alpha (0.1.0-alpha)** with **Beta entry** features: open any project directory, export GLB snapshots, remote Copilot API key stub, and CI release artifacts.
 
 ## Architecture
 
@@ -116,6 +116,16 @@ cargo run -p create3d-cli -- create \
 
 Sample projects live under `samples/` (see `samples/README.md`).
 
+Export a mesh snapshot:
+
+```bash
+cargo run -p create3d-cli -- export-gltf \
+  --project /path/to/project.c3d \
+  --output /path/to/snapshot.glb
+```
+
+In the desktop editor, use **Open Project** to load a sample or your own project directory, and **Export GLB** to write a snapshot.
+
 ## Alpha guides
 
 - [User guide](Create3D/docs/guides/user-guide.md)
@@ -157,6 +167,7 @@ Create3D/
 │   ├── create3d-cli/        # import and project commands
 │   └── create3d-sync-server/ # TCP sync server prototype
 ├── asset/
+│   ├── c3d-export-gltf/    # GLB snapshot exporter
 │   ├── c3d-asset-db/       # content hash + blob storage + index
 │   ├── c3d-asset-mesh/     # mesh asset blobs
 │   ├── c3d-asset-material/ # basic PBR material blobs + material graph

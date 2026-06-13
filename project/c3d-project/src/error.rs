@@ -60,6 +60,9 @@ pub enum ProjectError {
         /// Underlying error message.
         message: String,
     },
+    /// Export failure.
+    #[error("export error: {0}")]
+    Export(String),
     /// Project was not found.
     #[error("project not found at {0}")]
     NotFound(String),

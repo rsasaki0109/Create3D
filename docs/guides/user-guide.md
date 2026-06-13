@@ -16,13 +16,19 @@ cargo run -p xtask -- check
 cargo run -p create3d-desktop
 ```
 
-3. Open a sample project (optional):
+3. Open a sample project with **Open Project** (toolbar or command palette), or generate samples:
 
 ```bash
 cargo run -p xtask -- samples
 ```
 
-Copy a sample from `samples/` into your editor project directory or create a new project with the CLI.
+4. Export a GLB snapshot with **Export GLB** or:
+
+```bash
+cargo run -p create3d-cli -- export-gltf \
+  --project Create3D/samples/mesh-scene \
+  --output /tmp/mesh-scene.glb
+```
 
 ## Core workflows
 

@@ -33,9 +33,7 @@ impl ProjectTemplate {
             "empty" => Some(Self::Empty),
             "mesh" | "mesh-scene" => Some(Self::MeshScene),
             "point-cloud" | "pointcloud" | "point-cloud-scene" => Some(Self::PointCloudScene),
-            "gsplat" | "gaussian-splat" | "gaussian-splat-scene" => {
-                Some(Self::GaussianSplatScene)
-            }
+            "gsplat" | "gaussian-splat" | "gaussian-splat-scene" => Some(Self::GaussianSplatScene),
             "urdf" | "robot" | "urdf-robot-scene" => Some(Self::UrdfRobotScene),
             "ai" | "ai-editing" | "ai-editing-demo" => Some(Self::AiEditingDemo),
             _ => None,

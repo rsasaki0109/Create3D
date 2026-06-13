@@ -31,6 +31,21 @@ impl CommandRegistry {
                     shortcut: Some("Ctrl+Y"),
                 },
                 EditorCommand {
+                    id: "scene.open_project",
+                    label: "Open Project",
+                    shortcut: None,
+                },
+                EditorCommand {
+                    id: "scene.export_glb",
+                    label: "Export GLB Snapshot",
+                    shortcut: None,
+                },
+                EditorCommand {
+                    id: "project.save",
+                    label: "Save Project",
+                    shortcut: None,
+                },
+                EditorCommand {
                     id: "scene.import_glb",
                     label: "Import GLB",
                     shortcut: None,

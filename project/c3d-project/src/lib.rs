@@ -4,6 +4,7 @@
 
 mod authoring;
 mod error;
+mod export;
 mod gsplat;
 mod import;
 mod manifest;
@@ -14,6 +15,7 @@ mod robot;
 mod template;
 
 pub use authoring::PrimitiveCreateReport;
+pub use c3d_export_gltf::GltfExportReport;
 pub use error::{ProjectError, ProjectResult};
 pub use gsplat::GaussianSplatImportReport;
 pub use import::ImportReport;

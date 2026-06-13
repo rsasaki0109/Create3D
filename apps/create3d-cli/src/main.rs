@@ -41,6 +41,15 @@ enum Command {
         #[arg(long, default_value_t = 256)]
         iterations: usize,
     },
+    /// Export mesh entities from a project to a GLB snapshot.
+    ExportGltf {
+        /// Existing project directory.
+        #[arg(long)]
+        project: PathBuf,
+        /// Output GLB file path.
+        #[arg(long)]
+        output: PathBuf,
+    },
     /// Import a glTF/GLB file into a new or existing project.
     Import {
         /// glTF/GLB source file.
@@ -113,6 +122,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             entities,
             iterations,
         } => bench_scene_replay(entities, iterations),
+        Command::ExportGltf { project, output } => export_gltf(project, output),
         Command::Import {
             input,
             output,
@@ -221,6 +231,19 @@ fn bench_scene_replay(
     println!(
         "bench scene replay: {entities} entities, {iterations} translate ops in {:.2?} ({ops_per_sec:.0} ops/s)",
         elapsed
+    );
+    Ok(())
+}
+
+fn export_gltf(project: PathBuf, output: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    let project = Project::open(&project)?;
+    let report = project.export_gltf(&output)?;
+    println!(
+        "Exported {} meshes ({} nodes) to {} ({} bytes)",
+        report.mesh_count,
+        report.node_count,
+        output.display(),
+        report.byte_length
     );
     Ok(())
 }

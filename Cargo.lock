@@ -796,6 +796,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "c3d-export-gltf"
+version = "0.1.0-alpha"
+dependencies = [
+ "c3d-asset-material",
+ "c3d-asset-mesh",
+ "c3d-core",
+ "c3d-import-gltf",
+ "c3d-project",
+ "c3d-scene-doc",
+ "c3d-scene-schema",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "c3d-import-gltf"
 version = "0.1.0-alpha"
 dependencies = [
@@ -849,6 +866,7 @@ dependencies = [
  "c3d-asset-mesh",
  "c3d-asset-pointcloud",
  "c3d-core",
+ "c3d-export-gltf",
  "c3d-import-gltf",
  "c3d-import-gsplat",
  "c3d-import-ply",

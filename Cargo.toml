@@ -12,6 +12,7 @@ members = [
     "asset/c3d-import-gsplat",
     "asset/c3d-mesh-authoring",
     "asset/c3d-import-gltf",
+    "asset/c3d-export-gltf",
     "project/c3d-project",
     "scene/c3d-scene-schema",
     "scene/c3d-scene-doc",
@@ -56,6 +57,7 @@ c3d-import-ply = { path = "asset/c3d-import-ply" }
 c3d-import-gsplat = { path = "asset/c3d-import-gsplat" }
 c3d-mesh-authoring = { path = "asset/c3d-mesh-authoring" }
 c3d-import-gltf = { path = "asset/c3d-import-gltf" }
+c3d-export-gltf = { path = "asset/c3d-export-gltf" }
 c3d-project = { path = "project/c3d-project" }
 c3d-scene-schema = { path = "scene/c3d-scene-schema" }
 c3d-scene-doc = { path = "scene/c3d-scene-doc" }

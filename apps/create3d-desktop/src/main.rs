@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use c3d_ai_copilot::{CopilotEngine, CopilotProposal, CopilotResponse};
+use c3d_ai_copilot::{CopilotEngine, CopilotProposal, CopilotResponse, RemoteStubProvider};
 use c3d_asset_material::{MaterialAssetData, MaterialGraphData};
 use c3d_collab_core::{BranchProposal, CommentStatus, SceneComment};
 use c3d_core::logging::{init_logging, LoggingConfig};
@@ -98,6 +98,8 @@ struct DesktopApp {
     scene_dirty: bool,
     last_autosave: Instant,
     recovery_snapshot: Option<RecoverySnapshot>,
+    project_status: String,
+    copilot_api_key: String,
 }
 
 #[derive(Debug, Clone)]
@@ -183,11 +185,12 @@ impl Default for DesktopApp {
             },
             last_frame: Instant::now(),
             frame_ms: 0.0,
-            copilot_engine: CopilotEngine::mock(),
+            copilot_engine: CopilotEngine::configured(),
             copilot_input: String::new(),
             copilot_messages: Vec::new(),
             copilot_pending: None,
             copilot_preview_manager: None,
+            copilot_api_key: std::env::var("CREATE3D_COPILOT_API_KEY").unwrap_or_default(),
             robotics_mock_running: false,
             robotics_mock_bridge: None,
             robotics_topics: Vec::new(),
@@ -206,6 +209,7 @@ impl Default for DesktopApp {
             scene_dirty: false,
             last_autosave: Instant::now(),
             recovery_snapshot: None,
+            project_status: String::new(),
         }
     }
 }
@@ -415,6 +419,21 @@ impl DesktopApp {
             }
             "edit.redo" => {
                 self.redo();
+                None
+            }
+            "scene.open_project" => {
+                if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                    self.open_project_at(path);
+                }
+                None
+            }
+            "scene.export_glb" => {
+                self.export_project_glb();
+                None
+            }
+            "project.save" => {
+                self.persist_project();
+                self.project_status = "Project saved".into();
                 None
             }
             "scene.import_glb" => rfd::FileDialog::new()
@@ -1708,6 +1727,97 @@ impl DesktopApp {
         self.recovery_snapshot = None;
     }
 
+    fn refresh_copilot_engine(&mut self) {
+        let key = self.copilot_api_key.trim();
+        let api_key = if key.is_empty() {
+            None
+        } else {
+            Some(key.to_string())
+        };
+        self.copilot_engine = CopilotEngine::new(Box::new(RemoteStubProvider::new(api_key)));
+    }
+
+    fn open_project_at(&mut self, path: PathBuf) {
+        if !path.join("manifest.c3d.toml").is_file() {
+            self.project_status = format!("Not a Create3D project: {}", path.display());
+            return;
+        }
+
+        match Project::open(&path) {
+            Ok(project) => {
+                self.disconnect_collab();
+                self.copilot_preview_manager = None;
+                self.copilot_pending = None;
+                let scene = project.scene().clone();
+                self.scene_manager = Some(TransactionManager::new(scene.clone()));
+                self.project = Some(project);
+                self.mesh_cache.invalidate_all();
+                self.point_cloud_cache.invalidate_all();
+                self.splat_cache.invalidate_all();
+                self.selection.clear();
+                self.gizmo_drag = None;
+                self.scene_dirty = false;
+                self.last_autosave = Instant::now();
+                self.collab_comments.clear();
+                self.collab_proposals.clear();
+                if let Some(project) = self.project.as_ref() {
+                    if let Ok(store) = CollabStore::load(project.root().join("collab")) {
+                        self.collab_comments = store.comments();
+                        self.collab_proposals = store.proposals();
+                    }
+                    self.recovery_snapshot =
+                        project.recovery_is_newer().ok().and_then(|is_newer| {
+                            if is_newer {
+                                project.recovery_snapshot().ok().flatten()
+                            } else {
+                                None
+                            }
+                        });
+                }
+                project_scene_to_ecs(&scene, &mut self.runtime);
+                self.demo_entity = self.project.as_ref().and_then(|project| {
+                    project.scene().entities().find_map(|entity| {
+                        entity
+                            .name
+                            .as_ref()
+                            .filter(|name| name.value == "Lamp" || name.value == "Cube")
+                            .map(|_| entity.id)
+                    })
+                });
+                if let Some(entity_id) = self.demo_entity {
+                    self.selection.select(entity_id);
+                }
+                self.project_status = format!("Opened {}", path.display());
+            }
+            Err(err) => self.project_status = format!("Open failed: {err}"),
+        }
+    }
+
+    fn export_project_glb(&mut self) {
+        let Some(project) = self.project.as_ref() else {
+            self.project_status = "No project loaded".into();
+            return;
+        };
+        let Some(path) = rfd::FileDialog::new()
+            .add_filter("glTF Binary", &["glb"])
+            .set_file_name("snapshot.glb")
+            .save_file()
+        else {
+            return;
+        };
+        match project.export_gltf(&path) {
+            Ok(report) => {
+                self.project_status = format!(
+                    "Exported {} meshes to {} ({} bytes)",
+                    report.mesh_count,
+                    path.display(),
+                    report.byte_length
+                );
+            }
+            Err(err) => self.project_status = format!("Export failed: {err}"),
+        }
+    }
+
     fn push_collab_transaction(&mut self, transaction: Transaction) {
         let Some(client) = self.sync_client.as_ref() else {
             return;
@@ -1984,6 +2094,16 @@ impl DesktopApp {
         ui.label(
             "Ask about the scene or request edits. Write proposals require preview + approval.",
         );
+        ui.horizontal(|ui| {
+            ui.label("API key");
+            if ui
+                .add(egui::TextEdit::singleline(&mut self.copilot_api_key).password(true))
+                .changed()
+            {
+                self.refresh_copilot_engine();
+            }
+        });
+        ui.label("Optional remote stub via CREATE3D_COPILOT_API_KEY (local mock execution).");
         egui::ScrollArea::vertical()
             .max_height(160.0)
             .stick_to_bottom(true)
@@ -2171,9 +2291,21 @@ impl DesktopApp {
                 if self.scene_dirty {
                     ui.label("(unsaved changes)");
                 }
+                if !self.project_status.is_empty() {
+                    ui.label(&self.project_status);
+                }
                 ui.separator();
+                if ui.button("Open Project").clicked() {
+                    if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                        self.open_project_at(path);
+                    }
+                }
                 if ui.button("Save Project").clicked() {
                     self.persist_project();
+                    self.project_status = "Project saved".into();
+                }
+                if ui.button("Export GLB").clicked() {
+                    self.export_project_glb();
                 }
                 ui.separator();
                 if ui.button("Import GLB").clicked() {
