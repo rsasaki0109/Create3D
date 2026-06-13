@@ -21,9 +21,9 @@ impl CopilotEngine {
         Self::new(Box::new(crate::MockModelProvider))
     }
 
-    /// Create a Copilot engine using the remote provider stub (`CREATE3D_COPILOT_API_KEY`).
+    /// Create a Copilot engine using the remote LLM provider when configured.
     pub fn configured() -> Self {
-        Self::new(Box::new(crate::RemoteStubProvider::from_env()))
+        Self::new(Box::new(crate::RemoteLlmProvider::from_env()))
     }
 
     /// Create a Copilot engine with a custom model provider.

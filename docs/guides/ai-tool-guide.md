@@ -44,4 +44,13 @@ Approved Copilot bundles can be shared as branch proposals from the Collaboratio
 
 ## Local/offline mode
 
-Alpha uses the mock local provider only. Remote model providers should follow the same tool-only path when added.
+Without `CREATE3D_COPILOT_API_KEY`, Copilot uses the deterministic mock local provider.
+
+## Remote LLM mode
+
+When `CREATE3D_COPILOT_API_KEY` is set, Copilot calls an OpenAI-compatible `/chat/completions` endpoint and maps write tool calls into previewable scene proposals. Optional environment variables:
+
+- `CREATE3D_COPILOT_BASE_URL` (default `https://api.openai.com/v1`)
+- `CREATE3D_COPILOT_MODEL` (default `gpt-4o-mini`)
+
+Remote providers must still follow the tool-only path; direct scene mutation from model text is not supported.

@@ -4,7 +4,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use c3d_ai_copilot::{CopilotEngine, CopilotProposal, CopilotResponse, RemoteStubProvider};
+use c3d_ai_copilot::{
+    CopilotEngine, CopilotProposal, CopilotResponse, RemoteLlmConfig, RemoteLlmProvider,
+};
 use c3d_asset_material::{MaterialAssetData, MaterialGraphData};
 use c3d_collab_core::{BranchProposal, CommentStatus, SceneComment};
 use c3d_core::logging::{init_logging, LoggingConfig};
@@ -1734,7 +1736,9 @@ impl DesktopApp {
         } else {
             Some(key.to_string())
         };
-        self.copilot_engine = CopilotEngine::new(Box::new(RemoteStubProvider::new(api_key)));
+        self.copilot_engine = CopilotEngine::new(Box::new(RemoteLlmProvider::new(
+            RemoteLlmConfig::from_parts(api_key, None, None),
+        )));
     }
 
     fn open_project_at(&mut self, path: PathBuf) {
@@ -2103,7 +2107,9 @@ impl DesktopApp {
                 self.refresh_copilot_engine();
             }
         });
-        ui.label("Optional remote stub via CREATE3D_COPILOT_API_KEY (local mock execution).");
+        ui.label(
+            "Remote LLM via CREATE3D_COPILOT_API_KEY (optional CREATE3D_COPILOT_BASE_URL / CREATE3D_COPILOT_MODEL). Without a key, Copilot uses the local mock.",
+        );
         egui::ScrollArea::vertical()
             .max_height(160.0)
             .stick_to_bottom(true)

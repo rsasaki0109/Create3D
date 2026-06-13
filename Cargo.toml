@@ -95,6 +95,7 @@ gltf = { version = "1", features = ["import", "names"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 toml = "0.8"
 rfd = "0.15"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 [workspace.lints.rust]
 unsafe_code = "warn"

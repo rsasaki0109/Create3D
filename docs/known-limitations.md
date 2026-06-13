@@ -26,7 +26,9 @@ Create3D **0.1.0-beta** is a public prototype. Expect rough edges.
 
 ## AI
 
-- Copilot accepts an API key but still uses the mock local provider for responses.
+- Copilot uses the local mock provider when no API key is configured.
+- With `CREATE3D_COPILOT_API_KEY`, Copilot calls an OpenAI-compatible chat completions endpoint (`CREATE3D_COPILOT_BASE_URL`, default `https://api.openai.com/v1`; `CREATE3D_COPILOT_MODEL`, default `gpt-4o-mini`).
+- Write proposals still require preview and approval before commit.
 - AI cannot perform destructive geometry ops through collaboration sync.
 
 ## Collaboration

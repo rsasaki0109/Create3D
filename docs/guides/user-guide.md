@@ -59,6 +59,8 @@ Open the Copilot panel and try:
 - `move up 1` (requires selection; preview then Approve)
 - `rename to Lamp`
 
+Without an API key, Copilot uses the local mock provider. With `CREATE3D_COPILOT_API_KEY`, it calls an OpenAI-compatible chat endpoint (`CREATE3D_COPILOT_BASE_URL`, `CREATE3D_COPILOT_MODEL` optional).
+
 Approved proposals commit as normal scene transactions.
 
 ### Robotics

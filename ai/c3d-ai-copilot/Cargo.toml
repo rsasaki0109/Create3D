@@ -16,6 +16,7 @@ c3d-core = { workspace = true, features = ["serde"] }
 c3d-scene-doc.workspace = true
 c3d-scene-ops.workspace = true
 c3d-scene-schema.workspace = true
+reqwest = { workspace = true, features = ["blocking", "json", "rustls-tls"] }
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

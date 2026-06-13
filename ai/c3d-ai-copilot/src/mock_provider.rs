@@ -1,11 +1,10 @@
 use c3d_ai_context::ContextPack;
-use c3d_ai_tool_protocol::{validate_tool_call, ToolCall, ToolPermission, ToolRegistry};
-use c3d_core::UlidGenerator;
+use c3d_ai_tool_protocol::ToolCall;
 
 use crate::error::CopilotError;
-use crate::executor::ToolExecutor;
-use crate::response::{CopilotProposal, CopilotResponse};
-use crate::{ModelProvider, TransactionProvenance};
+use crate::proposal::build_proposal;
+use crate::response::CopilotResponse;
+use crate::ModelProvider;
 
 /// Deterministic local provider used in tests and the Month 9 desktop prototype.
 #[derive(Debug, Default, Clone, Copy)]
@@ -54,6 +53,7 @@ impl ModelProvider for MockModelProvider {
                     delta.0, delta.1, delta.2
                 ),
                 context,
+                "mock-local",
             )?));
         }
 
@@ -72,6 +72,7 @@ impl ModelProvider for MockModelProvider {
                 call,
                 format!("Rename selected entity to \"{name}\"."),
                 context,
+                "mock-local",
             )?));
         }
 
@@ -86,6 +87,7 @@ impl ModelProvider for MockModelProvider {
                 call,
                 format!("Create entity \"{name}\"."),
                 context,
+                "mock-local",
             )?));
         }
 
@@ -94,34 +96,6 @@ impl ModelProvider for MockModelProvider {
             context.scene_summary
         )))
     }
-}
-
-fn build_proposal(
-    prompt: &str,
-    call: ToolCall,
-    summary: String,
-    context: &ContextPack,
-) -> Result<CopilotProposal, CopilotError> {
-    let registry = ToolRegistry::builtins();
-    validate_tool_call(
-        &registry,
-        &call,
-        &[ToolPermission::SceneRead, ToolPermission::SceneWrite],
-    )?;
-
-    let mut ids = UlidGenerator::new();
-    let operations = ToolExecutor::compile_write(&call, context.selection.as_slice(), &mut ids)?;
-    Ok(CopilotProposal {
-        summary,
-        tool_calls: vec![call.clone()],
-        operations,
-        provenance: TransactionProvenance {
-            agent: "copilot".into(),
-            user_prompt: prompt.to_string(),
-            model_id: "mock-local".into(),
-            tool_names: vec![call.tool],
-        },
-    })
 }
 
 fn parse_translation_delta(prompt: &str) -> (f32, f32, f32) {
@@ -185,6 +159,7 @@ fn parse_create_name(prompt: &str) -> Option<String> {
 mod tests {
     use super::*;
     use c3d_ai_context::ContextBuilder;
+    use c3d_ai_tool_protocol::ToolRegistry;
     use c3d_core::EntityId;
     use c3d_scene_schema::Name;
 

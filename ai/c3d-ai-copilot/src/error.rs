@@ -18,4 +18,7 @@ pub enum CopilotError {
     /// Identifier parsing failed.
     #[error("{0}")]
     InvalidInput(String),
+    /// Remote model provider failed.
+    #[error("remote provider error: {0}")]
+    Remote(String),
 }
