@@ -40,6 +40,15 @@ impl Project {
                 self.material_asset(asset_id)
                     .map_err(|err| c3d_export_usd::ExportError::Asset(err.to_string()))
             },
+            |asset_id| {
+                let data = self
+                    .texture_export_data(asset_id)
+                    .map_err(|err| c3d_export_usd::ExportError::Asset(err.to_string()))?;
+                Ok(c3d_export_usd::TextureExportData {
+                    bytes: data.bytes,
+                    mime_type: data.mime_type,
+                })
+            },
             path,
         )
         .map_err(|err| ProjectError::Export(err.to_string()))

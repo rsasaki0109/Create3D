@@ -4,4 +4,4 @@
 
 mod export;
 
-pub use export::{export_scene_usda, ExportError, UsdExportReport};
+pub use export::{export_scene_usda, ExportError, TextureExportData, UsdExportReport};

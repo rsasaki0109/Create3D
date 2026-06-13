@@ -242,6 +242,20 @@ impl GlbBuilder {
                 .expect("attributes object")
                 .insert("NORMAL".into(), json!(normal));
         }
+        if mesh.uvs.len() == mesh.positions.len() {
+            let uvs = align_offset(&mut self.bin);
+            for uv in &mesh.uvs {
+                for component in uv {
+                    self.bin.extend_from_slice(&component.to_le_bytes());
+                }
+            }
+            let view = self.buffer_view(uvs, mesh.uvs.len() * 8);
+            let uv_accessor = self.float_vec2_accessor(view, mesh.uvs.len());
+            attributes
+                .as_object_mut()
+                .expect("attributes object")
+                .insert("TEXCOORD_0".into(), json!(uv_accessor));
+        }
 
         let material_index = self.add_material(material, texture_loader)?;
         let mesh_index = self.meshes.len();
@@ -377,6 +391,17 @@ impl GlbBuilder {
             accessor["max"] = json!(max);
         }
         self.accessors.push(accessor);
+        index
+    }
+
+    fn float_vec2_accessor(&mut self, view: usize, count: usize) -> usize {
+        let index = self.accessors.len();
+        self.accessors.push(json!({
+            "bufferView": view,
+            "componentType": 5126,
+            "count": count,
+            "type": "VEC2"
+        }));
         index
     }
 
