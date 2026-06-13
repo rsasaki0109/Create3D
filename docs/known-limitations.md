@@ -22,7 +22,7 @@ Create3D **0.1.1-beta** is a public prototype. Expect rough edges.
 
 ## Export
 
-- GLB export writes mesh hierarchy snapshots only; materials, animations, and point clouds are not exported yet.
+- GLB export writes mesh hierarchy snapshots with base-color factors and embedded base-color textures; animations and point clouds are not exported yet.
 - USDA export writes mesh hierarchy snapshots with base-color `displayColor`; materials, animations, and point clouds are not exported yet.
 
 ## AI

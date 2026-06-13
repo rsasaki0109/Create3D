@@ -4,4 +4,4 @@
 
 mod export;
 
-pub use export::{export_scene_glb, ExportError, GltfExportReport};
+pub use export::{export_scene_glb, ExportError, GltfExportReport, TextureExportData};

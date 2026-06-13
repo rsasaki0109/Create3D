@@ -1,13 +1,23 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
 use c3d_asset_material::MaterialAssetData;
 use c3d_asset_mesh::MeshAssetData;
 use c3d_core::math::{Quat, Vec3};
-use c3d_core::EntityId;
+use c3d_core::{AssetId, EntityId};
 use c3d_scene_doc::{Entity, SceneDoc};
 use c3d_scene_schema::Transform;
 use serde_json::{json, Value};
+
+/// Texture payload embedded into exported glTF buffers.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TextureExportData {
+    /// Encoded image bytes.
+    pub bytes: Vec<u8>,
+    /// MIME type such as `image/png`.
+    pub mime_type: String,
+}
 
 /// Export failures.
 #[derive(Debug, thiserror::Error)]
@@ -33,6 +43,8 @@ pub struct GltfExportReport {
     pub node_count: usize,
     /// Number of glTF meshes written.
     pub mesh_count: usize,
+    /// Number of embedded texture images written.
+    pub texture_count: usize,
     /// Output file size in bytes.
     pub byte_length: u64,
 }
@@ -40,8 +52,9 @@ pub struct GltfExportReport {
 /// Export a SceneDB document and mesh/material assets to a binary GLB file.
 pub fn export_scene_glb(
     scene: &SceneDoc,
-    mesh_loader: impl Fn(c3d_core::AssetId) -> Result<MeshAssetData, ExportError>,
-    material_loader: impl Fn(c3d_core::AssetId) -> Result<MaterialAssetData, ExportError>,
+    mesh_loader: impl Fn(AssetId) -> Result<MeshAssetData, ExportError>,
+    material_loader: impl Fn(AssetId) -> Result<MaterialAssetData, ExportError>,
+    texture_loader: impl Fn(AssetId) -> Result<TextureExportData, ExportError>,
     output: impl AsRef<Path>,
 ) -> Result<GltfExportReport, ExportError> {
     let mut builder = GlbBuilder::new();
@@ -53,6 +66,7 @@ pub fn export_scene_glb(
             &mut builder,
             &mesh_loader,
             &material_loader,
+            &texture_loader,
         )?;
         if let Some(index) = node_index {
             roots.push(index);
@@ -65,6 +79,7 @@ pub fn export_scene_glb(
 
     let mesh_count = builder.mesh_count;
     let node_count = builder.node_count;
+    let texture_count = builder.texture_count;
     let gltf = builder.finish(roots);
     let output = output.as_ref();
     if let Some(parent) = output.parent() {
@@ -75,6 +90,7 @@ pub fn export_scene_glb(
     Ok(GltfExportReport {
         node_count,
         mesh_count,
+        texture_count,
         byte_length,
     })
 }
@@ -83,8 +99,9 @@ fn export_entity_tree(
     entity_id: EntityId,
     scene: &SceneDoc,
     builder: &mut GlbBuilder,
-    mesh_loader: &impl Fn(c3d_core::AssetId) -> Result<MeshAssetData, ExportError>,
-    material_loader: &impl Fn(c3d_core::AssetId) -> Result<MaterialAssetData, ExportError>,
+    mesh_loader: &impl Fn(AssetId) -> Result<MeshAssetData, ExportError>,
+    material_loader: &impl Fn(AssetId) -> Result<MaterialAssetData, ExportError>,
+    texture_loader: &impl Fn(AssetId) -> Result<TextureExportData, ExportError>,
 ) -> Result<Option<usize>, ExportError> {
     let Some(entity) = scene.get(entity_id) else {
         return Ok(None);
@@ -92,9 +109,14 @@ fn export_entity_tree(
 
     let mut child_indices = Vec::new();
     for child_id in &entity.children {
-        if let Some(index) =
-            export_entity_tree(*child_id, scene, builder, mesh_loader, material_loader)?
-        {
+        if let Some(index) = export_entity_tree(
+            *child_id,
+            scene,
+            builder,
+            mesh_loader,
+            material_loader,
+            texture_loader,
+        )? {
             child_indices.push(index);
         }
     }
@@ -107,7 +129,7 @@ fn export_entity_tree(
             .map(|binding| material_loader(binding.material_id))
             .transpose()?
             .unwrap_or_default();
-        Some(builder.add_mesh(entity_label(entity), &mesh, &material)?)
+        Some(builder.add_mesh(entity_label(entity), &mesh, &material, texture_loader)?)
     } else {
         None
     };
@@ -143,9 +165,14 @@ struct GlbBuilder {
     buffer_views: Vec<Value>,
     meshes: Vec<Value>,
     materials: Vec<Value>,
+    images: Vec<Value>,
+    samplers: Vec<Value>,
+    textures: Vec<Value>,
+    texture_indices: HashMap<AssetId, usize>,
     nodes: Vec<Value>,
     mesh_count: usize,
     node_count: usize,
+    texture_count: usize,
 }
 
 impl GlbBuilder {
@@ -156,9 +183,14 @@ impl GlbBuilder {
             buffer_views: Vec::new(),
             meshes: Vec::new(),
             materials: Vec::new(),
+            images: Vec::new(),
+            samplers: Vec::new(),
+            textures: Vec::new(),
+            texture_indices: HashMap::new(),
             nodes: Vec::new(),
             mesh_count: 0,
             node_count: 0,
+            texture_count: 0,
         }
     }
 
@@ -167,6 +199,7 @@ impl GlbBuilder {
         name: String,
         mesh: &MeshAssetData,
         material: &MaterialAssetData,
+        texture_loader: &impl Fn(AssetId) -> Result<TextureExportData, ExportError>,
     ) -> Result<usize, ExportError> {
         mesh.validate()
             .map_err(|err| ExportError::Asset(err.to_string()))?;
@@ -210,16 +243,7 @@ impl GlbBuilder {
                 .insert("NORMAL".into(), json!(normal));
         }
 
-        let material_index = self.materials.len();
-        let color = material.base_color;
-        self.materials.push(json!({
-            "name": format!("material-{material_index}"),
-            "pbrMetallicRoughness": {
-                "baseColorFactor": [color[0], color[1], color[2], color[3]],
-                "metallicFactor": 0.0,
-                "roughnessFactor": 0.9
-            }
-        }));
+        let material_index = self.add_material(material, texture_loader)?;
         let mesh_index = self.meshes.len();
         self.meshes.push(json!({
             "name": name,
@@ -231,6 +255,69 @@ impl GlbBuilder {
         }));
         self.mesh_count += 1;
         Ok(mesh_index)
+    }
+
+    fn add_material(
+        &mut self,
+        material: &MaterialAssetData,
+        texture_loader: &impl Fn(AssetId) -> Result<TextureExportData, ExportError>,
+    ) -> Result<usize, ExportError> {
+        let resolved = material
+            .resolved()
+            .map_err(|err| ExportError::Asset(err.to_string()))?;
+        let color = resolved.base_color;
+        let mut pbr = json!({
+            "baseColorFactor": [color[0], color[1], color[2], color[3]],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.9
+        });
+        if let Some(texture_id) = material.base_color_texture {
+            let texture_index = self.texture_index(texture_id, texture_loader)?;
+            pbr["baseColorTexture"] = json!({ "index": texture_index });
+        }
+        let material_index = self.materials.len();
+        self.materials.push(json!({
+            "name": format!("material-{material_index}"),
+            "pbrMetallicRoughness": pbr
+        }));
+        Ok(material_index)
+    }
+
+    fn texture_index(
+        &mut self,
+        texture_id: AssetId,
+        texture_loader: &impl Fn(AssetId) -> Result<TextureExportData, ExportError>,
+    ) -> Result<usize, ExportError> {
+        if let Some(index) = self.texture_indices.get(&texture_id) {
+            return Ok(*index);
+        }
+
+        if self.samplers.is_empty() {
+            self.samplers.push(json!({
+                "magFilter": 9729,
+                "minFilter": 9729,
+                "wrapS": 10497,
+                "wrapT": 10497
+            }));
+        }
+
+        let texture = texture_loader(texture_id)?;
+        let offset = align_offset(&mut self.bin);
+        self.bin.extend_from_slice(&texture.bytes);
+        let view_index = self.buffer_view(offset, texture.bytes.len());
+        let image_index = self.images.len();
+        self.images.push(json!({
+            "bufferView": view_index,
+            "mimeType": texture.mime_type
+        }));
+        let texture_index = self.textures.len();
+        self.textures.push(json!({
+            "sampler": 0,
+            "source": image_index
+        }));
+        self.texture_indices.insert(texture_id, texture_index);
+        self.texture_count += 1;
+        Ok(texture_index)
     }
 
     fn add_node(
@@ -305,7 +392,7 @@ impl GlbBuilder {
     }
 
     fn finish(self, roots: Vec<usize>) -> GlbDocument {
-        let json = json!({
+        let mut json = json!({
             "asset": {
                 "version": "2.0",
                 "generator": "Create3D"
@@ -319,6 +406,11 @@ impl GlbBuilder {
             "bufferViews": self.buffer_views,
             "buffers": [{ "byteLength": self.bin.len() }]
         });
+        if !self.images.is_empty() {
+            json["images"] = json!(self.images);
+            json["samplers"] = json!(self.samplers);
+            json["textures"] = json!(self.textures);
+        }
         GlbDocument {
             json,
             bin: self.bin,
@@ -406,6 +498,18 @@ mod tests {
                     .material_asset(asset_id)
                     .map_err(|err| ExportError::Asset(err.to_string()))
             },
+            |asset_id| {
+                let bytes = project
+                    .texture_bytes(asset_id)
+                    .map_err(|err| ExportError::Asset(err.to_string()))?;
+                let mime_type = project
+                    .assets()
+                    .get(asset_id)
+                    .and_then(|record| record.mime_type.clone())
+                    .filter(|mime| !mime.is_empty())
+                    .unwrap_or_else(|| "image/png".into());
+                Ok(TextureExportData { bytes, mime_type })
+            },
             &output,
         )
         .expect("export");
@@ -415,5 +519,93 @@ mod tests {
 
         let imported = import_gltf_path(&output).expect("re-import");
         assert!(!imported.meshes.is_empty());
+    }
+
+    #[test]
+    fn exports_embedded_base_color_texture() {
+        use c3d_scene_doc::Entity;
+        use c3d_scene_schema::{MaterialBinding, MeshRef};
+
+        let mesh_id = AssetId::new();
+        let material_id = AssetId::new();
+        let texture_id = AssetId::new();
+        let entity_id = EntityId::new();
+
+        let mut scene = SceneDoc::new();
+        let mut entity = Entity::new(entity_id);
+        entity.mesh_ref = Some(MeshRef::new(mesh_id));
+        entity.material_binding = Some(MaterialBinding::new(material_id));
+        scene.insert_entity(entity, None).expect("insert entity");
+
+        let mesh = MeshAssetData {
+            version: 1,
+            positions: vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            normals: Vec::new(),
+            uvs: Vec::new(),
+            tangents: Vec::new(),
+            indices: vec![0, 1, 2],
+        };
+        let material = MaterialAssetData {
+            version: 1,
+            base_color: [0.2, 0.4, 0.8, 1.0],
+            base_color_texture: Some(texture_id),
+            graph: None,
+        };
+        let texture = TextureExportData {
+            bytes: vec![
+                0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+                0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00,
+                0x00, 0x90, 0x77, 0x53, 0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, 0x54, 0x08,
+                0xD7, 0x63, 0xF8, 0xCF, 0xC0, 0x00, 0x00, 0x03, 0x01, 0x01, 0x00, 0x18, 0xDD, 0x8D,
+                0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+            ],
+            mime_type: "image/png".into(),
+        };
+
+        let temp = tempfile::tempdir().expect("tempdir");
+        let output = temp.path().join("textured.glb");
+        let report = export_scene_glb(
+            &scene,
+            |asset| {
+                if asset == mesh_id {
+                    Ok(mesh.clone())
+                } else {
+                    Err(ExportError::Asset(format!("unexpected mesh {asset}")))
+                }
+            },
+            |asset| {
+                if asset == material_id {
+                    Ok(material.clone())
+                } else {
+                    Err(ExportError::Asset(format!("unexpected material {asset}")))
+                }
+            },
+            |asset| {
+                if asset == texture_id {
+                    Ok(texture.clone())
+                } else {
+                    Err(ExportError::Asset(format!("unexpected texture {asset}")))
+                }
+            },
+            &output,
+        )
+        .expect("export");
+
+        assert_eq!(report.texture_count, 1);
+        let gltf = read_glb_json(&output).expect("read glb json");
+        assert_eq!(gltf["textures"].as_array().map(Vec::len), Some(1));
+        assert!(gltf["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"].is_object());
+    }
+
+    fn read_glb_json(path: &Path) -> Result<Value, ExportError> {
+        let bytes = fs::read(path)?;
+        if bytes.len() < 20 || &bytes[0..4] != b"glTF" {
+            return Err(ExportError::Asset("invalid glb header".into()));
+        }
+        let json_length =
+            u32::from_le_bytes(bytes[12..16].try_into().expect("json length")) as usize;
+        let json_start = 20;
+        let json_end = json_start + json_length;
+        Ok(serde_json::from_slice(&bytes[json_start..json_end])?)
     }
 }

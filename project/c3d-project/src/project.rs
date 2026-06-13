@@ -5,6 +5,7 @@ use c3d_asset_db::{AssetDb, AssetKind};
 use c3d_asset_material::{MaterialAsset, MaterialAssetData};
 use c3d_asset_mesh::{MeshAsset, MeshAssetData};
 use c3d_core::{AssetId, UlidGenerator};
+use c3d_export_gltf::TextureExportData;
 use c3d_import_gltf::{import_result_to_scene_operations, GltfImportResult};
 use c3d_scene_doc::SceneDoc;
 use c3d_scene_ops::apply_operations;
@@ -130,6 +131,18 @@ impl Project {
         Ok(self.assets.read_blob(asset_id)?)
     }
 
+    /// Read texture bytes and MIME metadata for GLB export.
+    pub fn texture_export_data(&self, asset_id: AssetId) -> ProjectResult<TextureExportData> {
+        let bytes = self.texture_bytes(asset_id)?;
+        let mime_type = self
+            .assets()
+            .get(asset_id)
+            .and_then(|record| record.mime_type.clone())
+            .filter(|mime| !mime.is_empty())
+            .unwrap_or_else(|| guess_image_mime(&bytes));
+        Ok(TextureExportData { bytes, mime_type })
+    }
+
     /// Import a glTF/GLB file into the project and append scene entities.
     pub fn import_gltf(
         &mut self,
@@ -233,6 +246,16 @@ impl Project {
         let json = self.scene.to_json()?;
         fs::write(&self.scene_path, json)?;
         Ok(())
+    }
+}
+
+fn guess_image_mime(bytes: &[u8]) -> String {
+    if bytes.starts_with(&[0x89, b'P', b'N', b'G']) {
+        "image/png".into()
+    } else if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        "image/jpeg".into()
+    } else {
+        "application/octet-stream".into()
     }
 }
 

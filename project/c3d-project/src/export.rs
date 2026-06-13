@@ -19,6 +19,10 @@ impl Project {
                 self.material_asset(asset_id)
                     .map_err(|err| c3d_export_gltf::ExportError::Asset(err.to_string()))
             },
+            |asset_id| {
+                self.texture_export_data(asset_id)
+                    .map_err(|err| c3d_export_gltf::ExportError::Asset(err.to_string()))
+            },
             path,
         )
         .map_err(|err| ProjectError::Export(err.to_string()))
