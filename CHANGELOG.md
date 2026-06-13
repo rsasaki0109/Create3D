@@ -1,3 +1,33 @@
+# Create3D Beta (0.1.3-beta)
+
+Live ROS2 sidecar: Python `rclpy` bridge for real `/joint_states` over TCP JSONL IPC.
+
+## Highlights
+
+- **Live ROS2 sidecar** — `create3d-ros2-bridge --ros2 --no-mock` delegates to `tools/ros2_sidecar/bridge.py` (`rclpy` subscription, joint name filtering)
+- **Desktop integration** — set `CREATE3D_ROS2_BRIDGE_ROS2=1` to spawn live mode; `CREATE3D_ROS2_JOINT_STATES_TOPIC` for topic override
+- **Mock sidecar unchanged** — default TCP mock bridge still works without ROS2 installed
+
+## Build
+
+```bash
+cargo run -p xtask -- check
+cargo run -p xtask -- package
+```
+
+## Tag
+
+```bash
+git tag -a v0.1.3-beta -m "Create3D Beta 0.1.3 release"
+git push origin v0.1.3-beta
+```
+
+## Known limitations
+
+See `Create3D/docs/known-limitations.md`.
+
+---
+
 # Create3D Beta (0.1.2-beta)
 
 Export polish: GLB textures/UVs and USDA material parity.

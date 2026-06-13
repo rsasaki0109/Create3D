@@ -1297,16 +1297,32 @@ impl DesktopApp {
     }
 
     fn spawn_sidecar_process(&self) -> Result<(), String> {
-        Command::new(self.sidecar_binary())
+        let mut command = Command::new(self.sidecar_binary());
+        command
             .arg("--listen")
             .arg(&self.robotics_bridge_addr)
             .arg("--robot-name")
             .arg(&self.robotics_robot_name)
             .arg("--joint-names")
             .arg(self.robotics_joint_names.join(","))
+            .arg("--joint-states-topic")
+            .arg(
+                std::env::var("CREATE3D_ROS2_JOINT_STATES_TOPIC")
+                    .unwrap_or_else(|_| "/joint_states".into()),
+            );
+        if self.sidecar_use_ros2() {
+            command.arg("--ros2").arg("--no-mock");
+        }
+        command
             .spawn()
             .map(|_| ())
             .map_err(|err| format!("failed to spawn sidecar: {err}"))
+    }
+
+    fn sidecar_use_ros2(&self) -> bool {
+        std::env::var("CREATE3D_ROS2_BRIDGE_ROS2")
+            .ok()
+            .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "YES" | "yes" | "True"))
     }
 
     fn start_robotics_mock(&mut self) {

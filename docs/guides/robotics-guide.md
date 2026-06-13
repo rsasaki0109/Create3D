@@ -43,7 +43,7 @@ The mock bridge publishes synthetic joint states so you can verify live transfor
 
 Beta ships `create3d-ros2-bridge`, a sidecar process that speaks the same JSONL protocol as the mock bridge over TCP.
 
-Manual sidecar:
+### Mock sidecar
 
 ```bash
 cargo run -p create3d-ros2-bridge -- \
@@ -52,7 +52,35 @@ cargo run -p create3d-ros2-bridge -- \
   --joint-names shoulder,elbow
 ```
 
-Desktop:
+### Live ROS2 sidecar
+
+Requires a sourced ROS2 environment with `rclpy` and a publisher on `/joint_states` (or your topic).
+
+```bash
+source /opt/ros/jazzy/setup.bash
+
+cargo run -p create3d-ros2-bridge -- \
+  --ros2 \
+  --no-mock \
+  --listen 127.0.0.1:9741 \
+  --joint-names shoulder,elbow \
+  --joint-states-topic /joint_states
+```
+
+This delegates to `tools/ros2_sidecar/bridge.py`. Override the script or Python interpreter when needed:
+
+- `CREATE3D_ROS2_BRIDGE_PY=/path/to/bridge.py`
+- `CREATE3D_ROS2_BRIDGE_PYTHON=python3`
+
+Or run the Python bridge directly:
+
+```bash
+python3 Create3D/tools/ros2_sidecar/bridge.py \
+  --listen 127.0.0.1:9741 \
+  --joint-names shoulder,elbow
+```
+
+### Desktop
 
 1. Import or open a URDF scene.
 2. Open the **Robotics** panel.
@@ -60,7 +88,14 @@ Desktop:
 
 The editor connects to `CREATE3D_ROS2_BRIDGE_ADDR` (default `127.0.0.1:9741`). If nothing is listening, it tries to spawn `CREATE3D_ROS2_BRIDGE_BIN` (default `create3d-ros2-bridge`) with the scene's robot/joint names.
 
-Sidecar mock mode mirrors the in-process mock bridge. A future `--ros2` mode will subscribe to live ROS2 topics in environments with ROS2 installed.
+For live ROS2 from the desktop spawn path, set:
+
+```bash
+export CREATE3D_ROS2_BRIDGE_ROS2=1
+export CREATE3D_ROS2_JOINT_STATES_TOPIC=/joint_states
+```
+
+Sidecar mock mode mirrors the in-process mock bridge. ROS2 mode forwards live joint states from the configured topic.
 
 Protocol types live in `robotics/c3d-robotics-core` (`BridgeEnvelope`, `SidecarClient`).
 

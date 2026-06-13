@@ -42,7 +42,8 @@ Create3D **0.1.2-beta** is a public prototype. Expect rough edges.
 
 - In-process mock bridge for synthetic joint states without ROS2 installed.
 - TCP sidecar bridge (`create3d-ros2-bridge`) over JSONL IPC; desktop can spawn or connect to an external sidecar.
-- Live ROS2 topic subscription (`--ros2`) is reserved for a future release; Beta sidecar mock mode validates the IPC path.
+- Live ROS2 mode forwards `/joint_states` (configurable) via `tools/ros2_sidecar/bridge.py` when ROS2/rclpy is sourced.
+- TF tree snapshots from live ROS2 are not forwarded yet; joint states drive scene kinematics.
 
 ## Plugins
 
