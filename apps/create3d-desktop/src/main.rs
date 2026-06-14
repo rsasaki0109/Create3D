@@ -22,9 +22,9 @@ use c3d_project::{Project, ProjectTemplate, RecoverySnapshot};
 use c3d_rhi::Extent2D;
 use c3d_rhi_wgpu::WgpuBackend;
 use c3d_robotics_core::{
-    apply_joint_state, primary_robot_bridge_target, robot_tf_trees, BridgeMessage,
-    JointStateUpdate, MockBridge, SidecarClient, SidecarClientConfig, TfTreeNode, TopicInfo,
-    DEFAULT_SIDECAR_ADDR,
+    apply_joint_state, apply_tf_tree, live_tf_tree_from_message, primary_robot_bridge_target,
+    robot_tf_trees, BridgeMessage, JointStateUpdate, LiveTfFrameNode, MockBridge, SidecarClient,
+    SidecarClientConfig, TfTreeMessage, TfTreeNode, TopicInfo, DEFAULT_SIDECAR_ADDR,
 };
 use c3d_scene_ops::{SceneOperation, Transaction, TransactionManager};
 use c3d_scene_schema::{
@@ -93,6 +93,7 @@ struct DesktopApp {
     robotics_joint_names: Vec<String>,
     robotics_topics: Vec<TopicInfo>,
     robotics_joint_states: Vec<(String, f64)>,
+    robotics_live_tf: Option<TfTreeMessage>,
     robotics_status: String,
     collab_user_name: String,
     collab_server_addr: String,
@@ -216,6 +217,7 @@ impl Default for DesktopApp {
             robotics_joint_names: Vec::new(),
             robotics_topics: Vec::new(),
             robotics_joint_states: Vec::new(),
+            robotics_live_tf: None,
             robotics_status: String::new(),
             collab_user_name: "Editor".into(),
             collab_server_addr: "127.0.0.1:9731".into(),
@@ -1313,7 +1315,19 @@ impl DesktopApp {
             .arg(
                 std::env::var("CREATE3D_ROS2_JOINT_STATES_TOPIC")
                     .unwrap_or_else(|_| "/joint_states".into()),
-            );
+            )
+            .arg("--tf-topic")
+            .arg(std::env::var("CREATE3D_ROS2_TF_TOPIC").unwrap_or_else(|_| "/tf".into()))
+            .arg("--tf-static-topic")
+            .arg(
+                std::env::var("CREATE3D_ROS2_TF_STATIC_TOPIC")
+                    .unwrap_or_else(|_| "/tf_static".into()),
+            )
+            .arg("--tf-root-frame")
+            .arg(std::env::var("CREATE3D_ROS2_TF_ROOT").unwrap_or_else(|_| "base_link".into()));
+        if self.sidecar_disable_tf() {
+            command.arg("--no-tf");
+        }
         if self.sidecar_use_ros2() {
             command.arg("--ros2").arg("--no-mock");
         }
@@ -1325,6 +1339,12 @@ impl DesktopApp {
 
     fn sidecar_use_ros2(&self) -> bool {
         std::env::var("CREATE3D_ROS2_BRIDGE_ROS2")
+            .ok()
+            .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "YES" | "yes" | "True"))
+    }
+
+    fn sidecar_disable_tf(&self) -> bool {
+        std::env::var("CREATE3D_ROS2_BRIDGE_NO_TF")
             .ok()
             .is_some_and(|value| matches!(value.as_str(), "1" | "true" | "YES" | "yes" | "True"))
     }
@@ -1386,11 +1406,13 @@ impl DesktopApp {
             client.disconnect();
         }
         self.robotics_bridge_mode = RoboticsBridgeMode::Off;
+        self.robotics_live_tf = None;
         self.robotics_status = "Robotics bridge stopped".into();
     }
 
     fn apply_bridge_envelopes(&mut self, envelopes: Vec<c3d_robotics_core::BridgeEnvelope>) {
-        let mut updates = Vec::new();
+        let mut joint_updates = Vec::new();
+        let mut tf_update = None;
         for envelope in envelopes {
             match envelope.message {
                 BridgeMessage::TopicList { topics } => {
@@ -1404,22 +1426,34 @@ impl DesktopApp {
                         .map(|(name, position)| (name.clone(), *position))
                         .collect();
                     for (name, position) in &self.robotics_joint_states {
-                        updates.push(JointStateUpdate {
+                        joint_updates.push(JointStateUpdate {
                             joint_name: name.clone(),
                             position: *position,
                         });
                     }
                 }
-                BridgeMessage::TfTree(_) | BridgeMessage::Hello { .. } => {}
+                BridgeMessage::TfTree(message) => {
+                    self.robotics_live_tf = Some(message.clone());
+                    tf_update = Some(message);
+                }
+                BridgeMessage::Hello { .. } => {}
             }
         }
-        if updates.is_empty() {
+        if joint_updates.is_empty() && tf_update.is_none() {
             return;
         }
         if let Some(manager) = self.scene_manager.as_mut() {
-            if let Err(err) = c3d_robotics_core::apply_joint_states(manager.scene_mut(), &updates) {
-                tracing::warn!("bridge joint update failed: {err}");
-                return;
+            if !joint_updates.is_empty() {
+                if let Err(err) =
+                    c3d_robotics_core::apply_joint_states(manager.scene_mut(), &joint_updates)
+                {
+                    tracing::warn!("bridge joint update failed: {err}");
+                }
+            }
+            if let Some(message) = tf_update {
+                if let Err(err) = apply_tf_tree(manager.scene_mut(), &message) {
+                    tracing::warn!("bridge tf update failed: {err}");
+                }
             }
             self.sync_runtime();
         }
@@ -1489,18 +1523,40 @@ impl DesktopApp {
 
         ui.separator();
         ui.label("TF Tree");
-        let trees = self
-            .scene_manager
-            .as_ref()
-            .map(|manager| robot_tf_trees(manager.scene()))
-            .unwrap_or_default();
-        if trees.is_empty() {
-            ui.label("No robot roots in scene");
+        if let Some(message) = self.robotics_live_tf.as_ref() {
+            ui.label(format!(
+                "Live TF ({} edges, root={})",
+                message.edges.len(),
+                message.root_frame
+            ));
+            let tree = live_tf_tree_from_message(message);
+            self.draw_live_tf_node(ui, &tree, 0);
         } else {
-            for tree in trees {
-                ui.label(format!("Robot: {}", tree.robot_name));
-                self.draw_tf_node(ui, &tree.root, 0);
+            let trees = self
+                .scene_manager
+                .as_ref()
+                .map(|manager| robot_tf_trees(manager.scene()))
+                .unwrap_or_default();
+            if trees.is_empty() {
+                ui.label("No robot roots in scene");
+            } else {
+                for tree in trees {
+                    ui.label(format!("Robot: {}", tree.robot_name));
+                    self.draw_tf_node(ui, &tree.root, 0);
+                }
             }
+        }
+    }
+
+    fn draw_live_tf_node(&self, ui: &mut egui::Ui, node: &LiveTfFrameNode, depth: usize) {
+        ui.label(format!(
+            "{:indent$}{}",
+            "",
+            node.frame_name,
+            indent = depth * 2
+        ));
+        for child in &node.children {
+            self.draw_live_tf_node(ui, child, depth + 1);
         }
     }
 

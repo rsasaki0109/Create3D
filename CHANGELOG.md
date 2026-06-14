@@ -1,3 +1,33 @@
+# Create3D Beta (0.1.6-beta)
+
+Live ROS2 TF forwarding: sidecar publishes `tf_tree` snapshots from `/tf` and `/tf_static`.
+
+## Highlights
+
+- **Live TF sidecar** — `bridge.py` subscribes to `/tf` + `/tf_static`, emits `TfTreeMessage` over JSONL IPC
+- **Desktop integration** — Robotics panel shows live TF tree; matching URDF link frames update scene transforms
+- **Config** — `CREATE3D_ROS2_TF_TOPIC`, `CREATE3D_ROS2_TF_STATIC_TOPIC`, `CREATE3D_ROS2_TF_ROOT`, `CREATE3D_ROS2_BRIDGE_NO_TF=1`
+
+## Build
+
+```bash
+cargo run -p xtask -- check
+cargo run -p xtask -- package
+```
+
+## Tag
+
+```bash
+git tag -a v0.1.6-beta -m "Create3D Beta 0.1.6 release"
+git push origin v0.1.6-beta
+```
+
+## Known limitations
+
+See `Create3D/docs/known-limitations.md`.
+
+---
+
 # Create3D Beta (0.1.5-beta)
 
 Point cloud PLY export: ASCII snapshots from scene point cloud entities.

@@ -4,7 +4,7 @@
 
 Create3D is an AI-native, GPU-native, cloud-native 3D creation platform built in Rust.
 
-This repository is in **Beta (0.1.5-beta)**: open any project directory, export GLB/USD/PLY snapshots, remote Copilot LLM integration, URDF external mesh import, live ROS2 sidecar bridge, and CI release artifacts on version tags.
+This repository is in **Beta (0.1.6-beta)**: open any project directory, export GLB/USD/PLY snapshots, URDF import, live ROS2 joint/TF sidecar bridge, and CI release artifacts on version tags.
 
 ## Architecture
 

@@ -34,6 +34,18 @@ struct Cli {
     /// ROS2 joint states topic for `--ros2` mode.
     #[arg(long, default_value = "/joint_states")]
     joint_states_topic: String,
+    /// ROS2 TF topic for `--ros2` mode.
+    #[arg(long, default_value = "/tf")]
+    tf_topic: String,
+    /// ROS2 static TF topic for `--ros2` mode.
+    #[arg(long, default_value = "/tf_static")]
+    tf_static_topic: String,
+    /// Root TF frame forwarded in live snapshots.
+    #[arg(long, default_value = "base_link")]
+    tf_root_frame: String,
+    /// Disable live TF forwarding in `--ros2` mode.
+    #[arg(long, default_value_t = false)]
+    no_tf: bool,
     /// Publish synthetic joint states without ROS2 installed.
     #[arg(long, default_value_t = true)]
     mock: bool,
@@ -87,10 +99,20 @@ fn run_python_ros2_sidecar(cli: &Cli, joint_names: &[String]) -> i32 {
         .arg(&cli.listen)
         .arg("--joint-states-topic")
         .arg(&cli.joint_states_topic)
+        .arg("--tf-topic")
+        .arg(&cli.tf_topic)
+        .arg("--tf-static-topic")
+        .arg(&cli.tf_static_topic)
+        .arg("--tf-root-frame")
+        .arg(&cli.tf_root_frame)
         .arg("--joint-names")
         .arg(joint_names.join(","))
         .arg("--tick-ms")
-        .arg(cli.tick_ms.to_string())
+        .arg(cli.tick_ms.to_string());
+    if cli.no_tf {
+        command.arg("--no-tf");
+    }
+    command
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit());

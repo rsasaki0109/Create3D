@@ -74,13 +74,18 @@ cargo run -p create3d-ros2-bridge -- \
   --no-mock \
   --listen 127.0.0.1:9741 \
   --joint-names shoulder,elbow \
-  --joint-states-topic /joint_states
+  --joint-states-topic /joint_states \
+  --tf-root-frame base_link
 ```
 
 This delegates to `tools/ros2_sidecar/bridge.py`. Override the script or Python interpreter when needed:
 
 - `CREATE3D_ROS2_BRIDGE_PY=/path/to/bridge.py`
 - `CREATE3D_ROS2_BRIDGE_PYTHON=python3`
+- `CREATE3D_ROS2_TF_TOPIC=/tf`
+- `CREATE3D_ROS2_TF_STATIC_TOPIC=/tf_static`
+- `CREATE3D_ROS2_TF_ROOT=base_link`
+- `CREATE3D_ROS2_BRIDGE_NO_TF=1` to disable TF forwarding
 
 Or run the Python bridge directly:
 
@@ -103,15 +108,14 @@ For live ROS2 from the desktop spawn path, set:
 ```bash
 export CREATE3D_ROS2_BRIDGE_ROS2=1
 export CREATE3D_ROS2_JOINT_STATES_TOPIC=/joint_states
+export CREATE3D_ROS2_TF_ROOT=base_link
 ```
 
-Sidecar mock mode mirrors the in-process mock bridge. ROS2 mode forwards live joint states from the configured topic.
-
-Protocol types live in `robotics/c3d-robotics-core` (`BridgeEnvelope`, `SidecarClient`).
+Sidecar mock mode mirrors the in-process mock bridge. ROS2 mode forwards live joint states and TF snapshots from the configured topics.
 
 ## TF tree
 
-The Robotics panel lists TF frames derived from the imported hierarchy. Use it to confirm parent/child link relationships after import.
+The Robotics panel lists TF frames from live ROS2 when a sidecar bridge is connected. Otherwise it shows frames derived from the imported URDF hierarchy. Live TF updates scene link transforms when child frame names match imported link names.
 
 ## Limitations
 

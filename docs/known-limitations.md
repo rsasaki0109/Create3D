@@ -1,6 +1,6 @@
 # Known limitations (Beta)
 
-Create3D **0.1.5-beta** is a public prototype. Expect rough edges.
+Create3D **0.1.6-beta** is a public prototype. Expect rough edges.
 
 ## Editor
 
@@ -43,8 +43,8 @@ Create3D **0.1.5-beta** is a public prototype. Expect rough edges.
 
 - In-process mock bridge for synthetic joint states without ROS2 installed.
 - TCP sidecar bridge (`create3d-ros2-bridge`) over JSONL IPC; desktop can spawn or connect to an external sidecar.
-- Live ROS2 mode forwards `/joint_states` (configurable) via `tools/ros2_sidecar/bridge.py` when ROS2/rclpy is sourced.
-- TF tree snapshots from live ROS2 are not forwarded yet; joint states drive scene kinematics.
+- Live ROS2 mode forwards `/joint_states` (configurable) and TF snapshots from `/tf` + `/tf_static` via `tools/ros2_sidecar/bridge.py` when ROS2/rclpy is sourced.
+- Live TF updates robot link transforms when child frame names match imported URDF link names; unmatched frames are shown in the Robotics panel only.
 
 ## Plugins
 
