@@ -2066,7 +2066,7 @@ impl DesktopApp {
         match project.export_ply(&path) {
             Ok(report) => {
                 self.project_status = format!(
-                    "Exported {} points from {} entities to {} ({} bytes)",
+                    "Exported {} points from {} entities to {} ({} bytes, binary PLY)",
                     report.point_count,
                     report.entity_count,
                     path.display(),

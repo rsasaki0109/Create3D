@@ -1,3 +1,33 @@
+# Create3D Beta (0.1.8-beta)
+
+Binary PLY import/export v0: round-trip point cloud snapshots in binary little-endian format.
+
+## Highlights
+
+- **Binary PLY import** — shared header parser in `c3d-import-ply`; reads `float` + `uchar` vertex properties from binary little-endian files
+- **Binary PLY export** — `c3d-export-ply` defaults to binary little-endian; ASCII available via CLI `--ascii`
+- **Round-trip** — export binary PLY from scene entities and re-import with existing chunking pipeline
+
+## Build
+
+```bash
+cargo run -p xtask -- check
+cargo run -p xtask -- package
+```
+
+## Tag
+
+```bash
+git tag -a v0.1.8-beta -m "Create3D Beta 0.1.8 release"
+git push origin v0.1.8-beta
+```
+
+## Known limitations
+
+See `Create3D/docs/known-limitations.md`.
+
+---
+
 # Create3D Beta (0.1.7-beta)
 
 3DGS PLY export: ASCII Gaussian splat snapshots from scene splat entities.

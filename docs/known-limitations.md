@@ -1,6 +1,6 @@
 # Known limitations (Beta)
 
-Create3D **0.1.7-beta** is a public prototype. Expect rough edges.
+Create3D **0.1.8-beta** is a public prototype. Expect rough edges.
 
 ## Editor
 
@@ -17,14 +17,14 @@ Create3D **0.1.7-beta** is a public prototype. Expect rough edges.
 ## Import
 
 - glTF: supported paths only; exotic extensions may fail with path-qualified errors.
-- PLY / 3DGS: ASCII-oriented importers; binary PLY support is limited.
+- PLY / 3DGS: point cloud PLY import supports ASCII and binary little-endian (`float` + `uchar` properties); 3DGS import remains ASCII-oriented.
 - URDF: primitive visuals and external mesh references (`.stl`, `.glb`, `.gltf`); `package://` URIs resolve relative to the URDF directory. Collada (`.dae`) and rospack lookup are not supported yet.
 
 ## Export
 
 - GLB export writes mesh hierarchy snapshots with base-color factors, embedded base-color textures, and UV coordinates when present; animations and point clouds are not exported yet.
 - USDA export writes mesh hierarchy snapshots with UsdPreviewSurface materials, optional sidecar base-color textures, and UV primvars; animations and point clouds are not exported yet.
-- PLY export writes ASCII point cloud snapshots from scene entities (world transforms and crop filters applied); binary PLY is not exported yet.
+- PLY export writes point cloud snapshots from scene entities (world transforms and crop filters applied); binary little-endian is the default, with ASCII available via CLI `--ascii`.
 - 3DGS export writes ASCII Gaussian splat PLY snapshots (world transforms, crop, opacity/size scales applied); higher-order SH coefficients are not exported yet.
 
 ## AI

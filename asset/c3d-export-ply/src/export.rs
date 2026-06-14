@@ -21,6 +21,23 @@ pub enum ExportError {
     Asset(String),
 }
 
+/// On-disk PLY format for point cloud export.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PlyExportFormat {
+    /// ASCII 1.0 vertices.
+    Ascii,
+    /// Binary little-endian 1.0 vertices (default).
+    #[default]
+    BinaryLittleEndian,
+}
+
+/// Options controlling PLY snapshot export.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct PlyExportOptions {
+    /// Vertex storage format.
+    pub format: PlyExportFormat,
+}
+
 /// Summary of a PLY export operation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlyExportReport {
@@ -32,12 +49,13 @@ pub struct PlyExportReport {
     pub byte_length: u64,
 }
 
-/// Export point cloud entities from a scene into a single ASCII PLY snapshot.
+/// Export point cloud entities from a scene into a single PLY snapshot.
 pub fn export_scene_ply(
     scene: &SceneDoc,
     metadata_loader: impl Fn(AssetId) -> Result<PointCloudAssetData, ExportError>,
     chunk_loader: impl Fn(AssetId) -> Result<PointCloudChunkPayload, ExportError>,
     output: impl AsRef<Path>,
+    options: PlyExportOptions,
 ) -> Result<PlyExportReport, ExportError> {
     let mut merged = MergedPointCloud::default();
     let mut entity_count = 0usize;
@@ -75,7 +93,10 @@ pub fn export_scene_ply(
     if let Some(parent) = output.parent() {
         fs::create_dir_all(parent)?;
     }
-    let body = merged.to_ascii_ply()?;
+    let body = match options.format {
+        PlyExportFormat::Ascii => merged.to_ascii_ply()?,
+        PlyExportFormat::BinaryLittleEndian => merged.to_binary_ply()?,
+    };
     fs::write(output, body)?;
     let byte_length = fs::metadata(output)?.len();
     Ok(PlyExportReport {
@@ -135,8 +156,9 @@ impl MergedPointCloud {
         }
     }
 
-    fn to_ascii_ply(&self) -> Result<String, ExportError> {
-        let mut header = String::from("ply\nformat ascii 1.0\n");
+    fn write_header(&self, format_line: &str) -> String {
+        let mut header = String::from("ply\n");
+        header.push_str(format_line);
         header.push_str(&format!("element vertex {}\n", self.point_count()));
         header.push_str("property float x\nproperty float y\nproperty float z\n");
         if self.has_rgb {
@@ -149,7 +171,11 @@ impl MergedPointCloud {
             header.push_str("property uchar classification\n");
         }
         header.push_str("end_header\n");
+        header
+    }
 
+    fn to_ascii_ply(&self) -> Result<Vec<u8>, ExportError> {
+        let header = self.write_header("format ascii 1.0\n");
         let mut body = String::with_capacity(header.len() + self.point_count() * 48);
         body.push_str(&header);
         for index in 0..self.point_count() {
@@ -169,6 +195,37 @@ impl MergedPointCloud {
             }
             body.push('\n');
         }
+        Ok(body.into_bytes())
+    }
+
+    fn to_binary_ply(&self) -> Result<Vec<u8>, ExportError> {
+        let header = self.write_header("format binary_little_endian 1.0\n");
+        let mut body = header.into_bytes();
+        let vertex_stride = 12
+            + usize::from(self.has_rgb) * 3
+            + usize::from(self.has_intensity) * 4
+            + usize::from(self.has_classification);
+        body.reserve(self.point_count() * vertex_stride);
+
+        for index in 0..self.point_count() {
+            let position = self.positions[index];
+            for component in position {
+                body.extend_from_slice(&component.to_le_bytes());
+            }
+            if self.has_rgb {
+                let color = self.colors.get(index).copied().unwrap_or([255, 255, 255]);
+                body.extend_from_slice(&color);
+            }
+            if self.has_intensity {
+                let value = self.intensity.get(index).copied().unwrap_or(0.0);
+                body.extend_from_slice(&value.to_le_bytes());
+            }
+            if self.has_classification {
+                let value = self.classification.get(index).copied().unwrap_or(0);
+                body.push(value);
+            }
+        }
+
         Ok(body)
     }
 }
@@ -232,16 +289,18 @@ mod tests {
                     .map_err(|err| ExportError::Asset(err.to_string()))
             },
             &output,
+            PlyExportOptions::default(),
         )
         .expect("export");
 
         assert!(report.entity_count >= 1);
         assert!(report.point_count > 0);
-        let exported = fs::read_to_string(&output).expect("read ply");
-        assert!(exported.starts_with("ply\n"));
-        assert!(exported.contains("property float x"));
+        let exported = fs::read(&output).expect("read ply");
+        assert!(exported.starts_with(b"ply\n"));
+        let header = String::from_utf8_lossy(&exported);
+        assert!(header.contains("format binary_little_endian 1.0"));
 
-        let reimported = import_ply_bytes(exported.as_bytes(), "round-trip").expect("re-import");
+        let reimported = import_ply_bytes(&exported, "round-trip").expect("re-import");
         assert_eq!(reimported.metadata.point_count, report.point_count);
     }
 
@@ -299,11 +358,14 @@ mod tests {
                 }
             },
             &output,
+            PlyExportOptions::default(),
         )
         .expect("export");
         assert_eq!(report.point_count, 1);
 
-        let contents = fs::read_to_string(&output).expect("read ply");
-        assert!(contents.contains("2 0 0"));
+        let contents = fs::read(&output).expect("read ply");
+        let reimported = import_ply_bytes(&contents, "transformed").expect("re-import");
+        assert_eq!(reimported.metadata.point_count, 1);
+        assert!((reimported.chunks[0].positions[0][0] - 2.0).abs() < 1e-5);
     }
 }

@@ -37,6 +37,12 @@ cargo run -p create3d-cli -- export-ply \
   --project Create3D/samples/point-cloud-scene \
   --output /tmp/point-cloud-scene.ply
 
+# ASCII PLY instead of the default binary format:
+cargo run -p create3d-cli -- export-ply \
+  --project Create3D/samples/point-cloud-scene \
+  --output /tmp/point-cloud-scene-ascii.ply \
+  --ascii
+
 cargo run -p create3d-cli -- export-gsplat \
   --project Create3D/samples/gaussian-splat-scene \
   --output /tmp/gaussian-splat-scene.ply
@@ -56,7 +62,7 @@ cargo run -p create3d-cli -- export-gsplat \
 Use toolbar buttons or the command palette (`Ctrl+Shift+P`):
 
 - GLB / glTF meshes
-- PLY point clouds (auto-detects 3DGS when applicable)
+- PLY point clouds (ASCII or binary little-endian; auto-detects 3DGS when applicable)
 - 3DGS PLY
 - URDF robots
 

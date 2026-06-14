@@ -1,6 +1,6 @@
 [package]
 name = "c3d-export-ply"
-description = "Create3D ASCII PLY point cloud snapshot exporter"
+description = "Create3D PLY point cloud snapshot exporter"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use c3d_core::{init_logging, LoggingConfig, UlidGenerator};
-use c3d_project::{Project, ProjectTemplate};
+use c3d_project::{PlyExportFormat, PlyExportOptions, Project, ProjectTemplate};
 use c3d_scene_ops::{SceneOperation, Transaction, TransactionManager};
 use c3d_scene_schema::TransformOp;
 use clap::{Parser, Subcommand};
@@ -67,6 +67,9 @@ enum Command {
         /// Output PLY file path.
         #[arg(long)]
         output: PathBuf,
+        /// Write ASCII PLY instead of the default binary little-endian format.
+        #[arg(long)]
+        ascii: bool,
     },
     /// Export Gaussian splat entities from a project to a 3DGS PLY snapshot.
     ExportGsplat {
@@ -151,7 +154,11 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         } => bench_scene_replay(entities, iterations),
         Command::ExportGltf { project, output } => export_gltf(project, output),
         Command::ExportUsd { project, output } => export_usd(project, output),
-        Command::ExportPly { project, output } => export_ply(project, output),
+        Command::ExportPly {
+            project,
+            output,
+            ascii,
+        } => export_ply(project, output, ascii),
         Command::ExportGsplat { project, output } => export_gsplat(project, output),
         Command::Import {
             input,
@@ -293,11 +300,23 @@ fn export_usd(project: PathBuf, output: PathBuf) -> Result<(), Box<dyn std::erro
     Ok(())
 }
 
-fn export_ply(project: PathBuf, output: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+fn export_ply(
+    project: PathBuf,
+    output: PathBuf,
+    ascii: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     let project = Project::open(&project)?;
-    let report = project.export_ply(&output)?;
+    let options = PlyExportOptions {
+        format: if ascii {
+            PlyExportFormat::Ascii
+        } else {
+            PlyExportFormat::BinaryLittleEndian
+        },
+    };
+    let report = project.export_ply_with_options(&output, options)?;
+    let format_label = if ascii { "ASCII" } else { "binary" };
     println!(
-        "Exported {} point cloud entities ({} points) to {} ({} bytes)",
+        "Exported {} point cloud entities ({} points, {format_label} PLY) to {} ({} bytes)",
         report.entity_count,
         report.point_count,
         output.display(),

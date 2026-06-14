@@ -4,7 +4,7 @@
 
 Create3D is an AI-native, GPU-native, cloud-native 3D creation platform built in Rust.
 
-This repository is in **Beta (0.1.7-beta)**: open any project directory, export GLB/USD/PLY/3DGS snapshots, URDF import, live ROS2 joint/TF sidecar bridge, and CI release artifacts on version tags.
+This repository is in **Beta (0.1.8-beta)**: open any project directory, export GLB/USD/PLY/3DGS snapshots, URDF import, live ROS2 joint/TF sidecar bridge, and CI release artifacts on version tags.
 
 ## Architecture
 
@@ -179,7 +179,7 @@ Create3D/
 │   ├── c3d-asset-material/ # basic PBR material blobs + material graph
 │   ├── c3d-asset-pointcloud/ # point cloud metadata + chunk payloads + residency
 │   ├── c3d-asset-gsplat/   # Gaussian splat metadata + chunk payloads + residency
-│   ├── c3d-import-ply/     # ASCII PLY import + spatial chunking
+│   ├── c3d-import-ply/     # ASCII + binary PLY import + spatial chunking
 │   ├── c3d-import-gsplat/  # ASCII 3DGS PLY import + spatial chunking
 │   ├── c3d-mesh-authoring/ # primitives, topology validation, thumbnails
 │   └── c3d-import-gltf/    # glTF/GLB importer

@@ -2,7 +2,7 @@ use std::path::Path;
 
 use c3d_export_gltf::{export_scene_glb, GltfExportReport};
 use c3d_export_gsplat::{export_scene_gsplat_ply, GsplatExportReport};
-use c3d_export_ply::{export_scene_ply, PlyExportReport};
+use c3d_export_ply::{export_scene_ply, PlyExportOptions, PlyExportReport};
 use c3d_export_usd::{export_scene_usda, UsdExportReport};
 
 use crate::error::{ProjectError, ProjectResult};
@@ -56,8 +56,17 @@ impl Project {
         .map_err(|err| ProjectError::Export(err.to_string()))
     }
 
-    /// Export point cloud entities from the project scene to an ASCII PLY snapshot.
+    /// Export point cloud entities from the project scene to a PLY snapshot (binary by default).
     pub fn export_ply(&self, path: impl AsRef<Path>) -> ProjectResult<PlyExportReport> {
+        self.export_ply_with_options(path, PlyExportOptions::default())
+    }
+
+    /// Export point cloud entities from the project scene with explicit PLY options.
+    pub fn export_ply_with_options(
+        &self,
+        path: impl AsRef<Path>,
+        options: PlyExportOptions,
+    ) -> ProjectResult<PlyExportReport> {
         use c3d_asset_pointcloud::PointCloudChunkPayload;
 
         export_scene_ply(
@@ -75,6 +84,7 @@ impl Project {
                     .map_err(|err| c3d_export_ply::ExportError::Asset(err.to_string()))
             },
             path,
+            options,
         )
         .map_err(|err| ProjectError::Export(err.to_string()))
     }
