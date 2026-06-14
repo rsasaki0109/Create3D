@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use c3d_export_gltf::{export_scene_glb, GltfExportReport};
+use c3d_export_gsplat::{export_scene_gsplat_ply, GsplatExportReport};
 use c3d_export_ply::{export_scene_ply, PlyExportReport};
 use c3d_export_usd::{export_scene_usda, UsdExportReport};
 
@@ -72,6 +73,29 @@ impl Project {
                     .map_err(|err| c3d_export_ply::ExportError::Asset(err.to_string()))?;
                 PointCloudChunkPayload::from_bytes(&bytes)
                     .map_err(|err| c3d_export_ply::ExportError::Asset(err.to_string()))
+            },
+            path,
+        )
+        .map_err(|err| ProjectError::Export(err.to_string()))
+    }
+
+    /// Export Gaussian splat entities from the project scene to an ASCII 3DGS PLY snapshot.
+    pub fn export_gsplat_ply(&self, path: impl AsRef<Path>) -> ProjectResult<GsplatExportReport> {
+        use c3d_asset_gsplat::GaussianSplatChunkPayload;
+
+        export_scene_gsplat_ply(
+            self.scene(),
+            |asset_id| {
+                self.gaussian_splat_asset(asset_id)
+                    .map_err(|err| c3d_export_gsplat::ExportError::Asset(err.to_string()))
+            },
+            |asset_id| {
+                let bytes = self
+                    .assets()
+                    .read_blob(asset_id)
+                    .map_err(|err| c3d_export_gsplat::ExportError::Asset(err.to_string()))?;
+                GaussianSplatChunkPayload::from_bytes(&bytes)
+                    .map_err(|err| c3d_export_gsplat::ExportError::Asset(err.to_string()))
             },
             path,
         )

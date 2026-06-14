@@ -68,6 +68,15 @@ enum Command {
         #[arg(long)]
         output: PathBuf,
     },
+    /// Export Gaussian splat entities from a project to a 3DGS PLY snapshot.
+    ExportGsplat {
+        /// Existing project directory.
+        #[arg(long)]
+        project: PathBuf,
+        /// Output 3DGS PLY file path.
+        #[arg(long)]
+        output: PathBuf,
+    },
     /// Import a glTF/GLB file into a new or existing project.
     Import {
         /// glTF/GLB source file.
@@ -143,6 +152,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         Command::ExportGltf { project, output } => export_gltf(project, output),
         Command::ExportUsd { project, output } => export_usd(project, output),
         Command::ExportPly { project, output } => export_ply(project, output),
+        Command::ExportGsplat { project, output } => export_gsplat(project, output),
         Command::Import {
             input,
             output,
@@ -290,6 +300,19 @@ fn export_ply(project: PathBuf, output: PathBuf) -> Result<(), Box<dyn std::erro
         "Exported {} point cloud entities ({} points) to {} ({} bytes)",
         report.entity_count,
         report.point_count,
+        output.display(),
+        report.byte_length
+    );
+    Ok(())
+}
+
+fn export_gsplat(project: PathBuf, output: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    let project = Project::open(&project)?;
+    let report = project.export_gsplat_ply(&output)?;
+    println!(
+        "Exported {} Gaussian splat entities ({} splats) to {} ({} bytes)",
+        report.entity_count,
+        report.splat_count,
         output.display(),
         report.byte_length
     );

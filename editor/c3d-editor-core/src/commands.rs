@@ -51,6 +51,11 @@ impl CommandRegistry {
                     shortcut: None,
                 },
                 EditorCommand {
+                    id: "scene.export_gsplat",
+                    label: "Export 3DGS Snapshot",
+                    shortcut: None,
+                },
+                EditorCommand {
                     id: "project.save",
                     label: "Save Project",
                     shortcut: None,

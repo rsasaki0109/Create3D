@@ -22,7 +22,7 @@ cargo run -p create3d-desktop
 cargo run -p xtask -- samples
 ```
 
-4. Export snapshots with **Export GLB** / **Export USD** / **Export PLY** or:
+4. Export snapshots with **Export GLB** / **Export USD** / **Export PLY** / **Export 3DGS** or:
 
 ```bash
 cargo run -p create3d-cli -- export-gltf \
@@ -36,6 +36,10 @@ cargo run -p create3d-cli -- export-usd \
 cargo run -p create3d-cli -- export-ply \
   --project Create3D/samples/point-cloud-scene \
   --output /tmp/point-cloud-scene.ply
+
+cargo run -p create3d-cli -- export-gsplat \
+  --project Create3D/samples/gaussian-splat-scene \
+  --output /tmp/gaussian-splat-scene.ply
 ```
 
 ## Core workflows

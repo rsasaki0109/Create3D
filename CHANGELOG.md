@@ -1,3 +1,33 @@
+# Create3D Beta (0.1.7-beta)
+
+3DGS PLY export: ASCII Gaussian splat snapshots from scene splat entities.
+
+## Highlights
+
+- **3DGS export** — new `c3d-export-gsplat` crate merges scene `GaussianSplatRef` entities into one 3DGS PLY
+- **Render settings aware** — applies entity transforms, crop filters, opacity scale, and size scale before writing
+- **CLI + Desktop** — `export-gsplat` subcommand and **Export 3DGS** toolbar / command palette action
+
+## Build
+
+```bash
+cargo run -p xtask -- check
+cargo run -p xtask -- package
+```
+
+## Tag
+
+```bash
+git tag -a v0.1.7-beta -m "Create3D Beta 0.1.7 release"
+git push origin v0.1.7-beta
+```
+
+## Known limitations
+
+See `Create3D/docs/known-limitations.md`.
+
+---
+
 # Create3D Beta (0.1.6-beta)
 
 Live ROS2 TF forwarding: sidecar publishes `tf_tree` snapshots from `/tf` and `/tf_static`.
