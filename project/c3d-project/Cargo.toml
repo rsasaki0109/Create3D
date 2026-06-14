@@ -16,6 +16,7 @@ c3d-core = { workspace = true, features = ["serde"] }
 c3d-export-gltf.workspace = true
 c3d-export-usd.workspace = true
 c3d-import-gltf.workspace = true
+c3d-import-stl.workspace = true
 c3d-asset-gsplat.workspace = true
 c3d-import-ply.workspace = true
 c3d-import-gsplat.workspace = true

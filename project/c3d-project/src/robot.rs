@@ -2,11 +2,12 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use c3d_asset_material::{MaterialAssetData, MaterialGraphData};
+use c3d_asset_mesh::MeshAssetData;
 use c3d_core::{EntityId, UlidGenerator};
 use c3d_mesh_authoring::{compute_normals, compute_tangents, unit_cube, AuthoringMesh};
 use c3d_scene_ops::{apply_operations, SceneOperation};
 use c3d_scene_schema::{MaterialBinding, MeshRef, Name, RobotLink, RobotRoot, Transform};
-use c3d_urdf::{parse_urdf, parse_urdf_file, UrdfGeometry, UrdfImportPlan};
+use c3d_urdf::{parse_urdf, parse_urdf_file, resolve_urdf_mesh_path, UrdfGeometry, UrdfImportPlan};
 
 use crate::error::{ProjectError, ProjectResult};
 use crate::import::ImportReport;
@@ -62,7 +63,7 @@ impl Project {
         let root_entity_id = ids.next_entity_id();
 
         let mut robot_root = RobotRoot::new(plan.robot_name.clone());
-        robot_root.package_path = package_path;
+        robot_root.package_path = package_path.clone();
 
         operations.push(SceneOperation::CreateEntity {
             entity_id: root_entity_id,
@@ -83,6 +84,7 @@ impl Project {
             &plan,
             &plan.root_link,
             root_entity_id,
+            package_path.as_deref(),
             &mut link_entities,
             &mut operations,
             ids,
@@ -120,11 +122,13 @@ impl ImportReport {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_link_branch(
     project: &mut Project,
     plan: &UrdfImportPlan,
     link_name: &str,
     parent_entity: EntityId,
+    package_path: Option<&str>,
     link_entities: &mut HashMap<String, EntityId>,
     operations: &mut Vec<SceneOperation>,
     ids: &mut UlidGenerator,
@@ -158,7 +162,7 @@ fn build_link_branch(
     });
 
     for visual in &link_spec.visuals {
-        let mesh_id = project.store_urdf_mesh(ids, &visual.name, &visual.geometry)?;
+        let mesh_id = project.store_urdf_mesh(ids, package_path, &visual.name, &visual.geometry)?;
         let material_id = project.store_urdf_material(ids, &visual.name, visual.color)?;
         let visual_entity_id = ids.next_entity_id();
         let mut visual_transform = visual.origin.to_transform();
@@ -191,6 +195,7 @@ fn build_link_branch(
             plan,
             &joint.joint.child_link,
             link_entity_id,
+            package_path,
             link_entities,
             operations,
             ids,
@@ -204,13 +209,23 @@ impl Project {
     fn store_urdf_mesh(
         &mut self,
         ids: &mut UlidGenerator,
+        package_path: Option<&str>,
         name: &str,
         geometry: &UrdfGeometry,
     ) -> ProjectResult<c3d_core::AssetId> {
         match geometry {
-            UrdfGeometry::Mesh { filename, .. } => Err(ProjectError::UrdfImport(format!(
-                "external mesh `{filename}` import not implemented in Month 10"
-            ))),
+            UrdfGeometry::Mesh { filename, .. } => {
+                let resolved = resolve_urdf_mesh_path(filename, package_path.map(Path::new))
+                    .map_err(|err| ProjectError::UrdfImport(err.to_string()))?;
+                let mut mesh = load_urdf_mesh_file(&resolved)?;
+                if mesh.normals.is_empty() {
+                    compute_normals(&mut mesh);
+                }
+                compute_tangents(&mut mesh);
+                AuthoringMesh::from_render_mesh(mesh.clone())
+                    .map_err(|err| ProjectError::Mesh(err.to_string()))?;
+                self.store_mesh(ids, format!("{name}-mesh"), mesh)
+            }
             UrdfGeometry::Box { .. }
             | UrdfGeometry::Cylinder { .. }
             | UrdfGeometry::Sphere { .. } => {
@@ -240,6 +255,34 @@ impl Project {
     }
 }
 
+fn load_urdf_mesh_file(path: &Path) -> ProjectResult<MeshAssetData> {
+    let extension = path
+        .extension()
+        .and_then(|value| value.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+
+    match extension.as_str() {
+        "glb" | "gltf" => {
+            let import = c3d_import_gltf::import_gltf_path(path)
+                .map_err(|err| ProjectError::import_at_path("glTF/GLB", path, err))?;
+            import
+                .meshes
+                .first()
+                .map(|mesh| mesh.data.clone())
+                .ok_or_else(|| {
+                    ProjectError::UrdfImport(format!("no mesh geometry in `{}`", path.display()))
+                })
+        }
+        "stl" => c3d_import_stl::import_stl_path(path)
+            .map_err(|err| ProjectError::import_at_path("STL", path, err)),
+        other => Err(ProjectError::UrdfImport(format!(
+            "unsupported URDF mesh format `{other}` in `{}`",
+            path.display()
+        ))),
+    }
+}
+
 fn geometry_scale(geometry: &UrdfGeometry) -> c3d_core::math::Vec3 {
     match geometry {
         UrdfGeometry::Box { size } => {
@@ -263,6 +306,49 @@ mod tests {
     use super::*;
     use c3d_robotics_core::{apply_joint_state, JointStateUpdate};
     use c3d_urdf::preview_arm_urdf;
+    use std::fs;
+
+    fn write_binary_stl_triangle(path: &Path) {
+        let mut bytes = vec![0_u8; 84];
+        bytes[80..84].copy_from_slice(&1_u32.to_le_bytes());
+        let mut triangle = Vec::new();
+        for value in [
+            0.0_f32, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+        ] {
+            triangle.extend_from_slice(&value.to_le_bytes());
+        }
+        triangle.extend_from_slice(&0_u16.to_le_bytes());
+        bytes.extend(triangle);
+        fs::write(path, bytes).expect("write stl");
+    }
+
+    #[test]
+    fn urdf_import_loads_external_mesh_reference() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let mesh_path = temp.path().join("link.stl");
+        write_binary_stl_triangle(&mesh_path);
+
+        let urdf = r#"<?xml version="1.0"?>
+<robot name="mesh_robot">
+  <link name="base_link">
+    <visual name="mesh_visual">
+      <geometry>
+        <mesh filename="link.stl"/>
+      </geometry>
+    </visual>
+  </link>
+</robot>"#;
+        let urdf_path = temp.path().join("robot.urdf");
+        fs::write(&urdf_path, urdf).expect("write urdf");
+
+        let mut project = Project::create(temp.path(), "robot").expect("project");
+        let mut ids = UlidGenerator::default();
+        let report = project
+            .import_urdf(&urdf_path, &mut ids)
+            .expect("import urdf with mesh");
+        assert_eq!(report.robot_name, "mesh_robot");
+        assert_eq!(report.link_entities.len(), 1);
+    }
 
     #[test]
     fn urdf_import_creates_robot_hierarchy() {

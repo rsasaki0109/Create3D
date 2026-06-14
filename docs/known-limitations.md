@@ -1,6 +1,6 @@
 # Known limitations (Beta)
 
-Create3D **0.1.2-beta** is a public prototype. Expect rough edges.
+Create3D **0.1.4-beta** is a public prototype. Expect rough edges.
 
 ## Editor
 
@@ -18,7 +18,7 @@ Create3D **0.1.2-beta** is a public prototype. Expect rough edges.
 
 - glTF: supported paths only; exotic extensions may fail with path-qualified errors.
 - PLY / 3DGS: ASCII-oriented importers; binary PLY support is limited.
-- URDF: preview arm and common links; mesh packages with external assets may need manual path fixes.
+- URDF: primitive visuals and external mesh references (`.stl`, `.glb`, `.gltf`); `package://` URIs resolve relative to the URDF directory. Collada (`.dae`) and rospack lookup are not supported yet.
 
 ## Export
 

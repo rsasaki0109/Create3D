@@ -1,3 +1,33 @@
+# Create3D Beta (0.1.4-beta)
+
+URDF external mesh import: resolve `package://` and relative paths; load STL and GLB/GLTF visuals.
+
+## Highlights
+
+- **URDF mesh paths** — `resolve_urdf_mesh_path` handles `package://`, `file://`, relative, and absolute references from the URDF directory
+- **External mesh formats** — new `c3d-import-stl` crate; URDF `<mesh>` visuals load `.stl`, `.glb`, and `.gltf`
+- **Import tests** — project importer covers relative STL references next to the URDF file
+
+## Build
+
+```bash
+cargo run -p xtask -- check
+cargo run -p xtask -- package
+```
+
+## Tag
+
+```bash
+git tag -a v0.1.4-beta -m "Create3D Beta 0.1.4 release"
+git push origin v0.1.4-beta
+```
+
+## Known limitations
+
+See `Create3D/docs/known-limitations.md`.
+
+---
+
 # Create3D Beta (0.1.3-beta)
 
 Live ROS2 sidecar: Python `rclpy` bridge for real `/joint_states` over TCP JSONL IPC.

@@ -23,6 +23,9 @@ pub enum ProjectError {
     /// Import failure.
     #[error(transparent)]
     Import(#[from] ImportError),
+    /// STL import failure.
+    #[error(transparent)]
+    StlImport(#[from] c3d_import_stl::ImportError),
     /// PLY import failure.
     #[error(transparent)]
     PointCloudImport(#[from] c3d_import_ply::ImportError),

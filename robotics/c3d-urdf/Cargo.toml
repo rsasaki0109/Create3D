@@ -14,5 +14,8 @@ glam.workspace = true
 roxmltree = "0.20"
 thiserror.workspace = true
 
+[dev-dependencies]
+tempfile = "3"
+
 [lints]
 workspace = true

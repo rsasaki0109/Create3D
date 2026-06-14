@@ -29,7 +29,17 @@ URDF import creates:
 - A `RobotRoot` entity
 - `RobotLink` entities for each link
 - `RobotJoint` entities for joints
-- Primitive visuals where URDF geometry is available
+- Primitive visuals (box/cylinder/sphere) and external mesh references (`.stl`, `.glb`, `.gltf`)
+
+### External mesh paths
+
+URDF `<mesh filename="...">` references are resolved from the URDF file directory:
+
+- Relative paths: `meshes/base.stl`
+- Package URIs: `package://my_robot/meshes/base.stl` (path after the package name is resolved from the URDF directory or its parent)
+- File URIs: `file:///absolute/path/to/mesh.stl`
+
+Place mesh files next to the URDF or in the usual `../meshes/` layout. Collada (`.dae`) is not supported yet.
 
 ## Mock bridge
 
