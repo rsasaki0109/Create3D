@@ -62,9 +62,9 @@ fn render_orbit_frames(frame_count: usize) -> (Vec<RgbaImage>, PreviewLabels) {
     project_scene_to_ecs(&scene, &mut runtime);
 
     let mut camera = OrbitCamera {
-        target: c3d_core::math::Vec3::new(0.15, 1.05, 0.0),
-        distance: 5.8,
-        pitch: 0.48,
+        target: c3d_core::math::Vec3::new(0.05, 0.85, 0.0),
+        distance: 6.6,
+        pitch: 0.42,
         ..OrbitCamera::default()
     };
 
