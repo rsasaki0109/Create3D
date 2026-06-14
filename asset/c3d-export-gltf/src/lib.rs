@@ -1,4 +1,4 @@
-//! glTF/GLB snapshot export for Create3D scenes.
+//! glTF/GLB snapshot export for Create3D scenes (meshes and point clouds).
 
 #![warn(missing_docs)]
 

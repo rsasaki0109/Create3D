@@ -10,6 +10,7 @@ publish = false
 [dependencies]
 c3d-asset-material.workspace = true
 c3d-asset-mesh.workspace = true
+c3d-asset-pointcloud.workspace = true
 c3d-core = { workspace = true, features = ["serde"] }
 c3d-scene-doc.workspace = true
 c3d-scene-schema.workspace = true

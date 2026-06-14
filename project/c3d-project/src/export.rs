@@ -9,8 +9,10 @@ use crate::error::{ProjectError, ProjectResult};
 use crate::Project;
 
 impl Project {
-    /// Export mesh entities from the project scene to a binary GLB snapshot.
+    /// Export mesh and point cloud entities from the project scene to a binary GLB snapshot.
     pub fn export_gltf(&self, path: impl AsRef<Path>) -> ProjectResult<GltfExportReport> {
+        use c3d_asset_pointcloud::PointCloudChunkPayload;
+
         export_scene_glb(
             self.scene(),
             |asset_id| {
@@ -22,7 +24,24 @@ impl Project {
                     .map_err(|err| c3d_export_gltf::ExportError::Asset(err.to_string()))
             },
             |asset_id| {
-                self.texture_export_data(asset_id)
+                let data = self
+                    .texture_export_data(asset_id)
+                    .map_err(|err| c3d_export_gltf::ExportError::Asset(err.to_string()))?;
+                Ok(c3d_export_gltf::TextureExportData {
+                    bytes: data.bytes,
+                    mime_type: data.mime_type,
+                })
+            },
+            |asset_id| {
+                self.point_cloud_asset(asset_id)
+                    .map_err(|err| c3d_export_gltf::ExportError::Asset(err.to_string()))
+            },
+            |asset_id| {
+                let bytes = self
+                    .assets()
+                    .read_blob(asset_id)
+                    .map_err(|err| c3d_export_gltf::ExportError::Asset(err.to_string()))?;
+                PointCloudChunkPayload::from_bytes(&bytes)
                     .map_err(|err| c3d_export_gltf::ExportError::Asset(err.to_string()))
             },
             path,

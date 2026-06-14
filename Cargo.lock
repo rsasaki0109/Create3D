@@ -667,7 +667,7 @@ checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 
 [[package]]
 name = "c3d-ai-context"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-ai-tool-protocol",
  "c3d-core",
@@ -678,7 +678,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-ai-copilot"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-ai-context",
  "c3d-ai-tool-protocol",
@@ -694,7 +694,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-ai-tool-protocol"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "serde",
  "serde_json",
@@ -703,7 +703,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-asset-db"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "blake3",
  "c3d-core",
@@ -715,7 +715,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-asset-gsplat"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-asset-db",
  "c3d-core",
@@ -727,7 +727,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-asset-material"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-core",
  "serde",
@@ -737,7 +737,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-asset-mesh"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-core",
  "serde",
@@ -747,7 +747,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-asset-pointcloud"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-asset-db",
  "c3d-core",
@@ -759,7 +759,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-collab-core"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-core",
  "c3d-scene-ops",
@@ -773,7 +773,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-core"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "glam",
  "serde",
@@ -786,7 +786,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-ecs"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "bevy_ecs",
  "c3d-core",
@@ -797,17 +797,18 @@ dependencies = [
 
 [[package]]
 name = "c3d-editor-core"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-core",
 ]
 
 [[package]]
 name = "c3d-export-gltf"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-asset-material",
  "c3d-asset-mesh",
+ "c3d-asset-pointcloud",
  "c3d-core",
  "c3d-import-gltf",
  "c3d-project",
@@ -821,7 +822,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-export-gsplat"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-asset-gsplat",
  "c3d-core",
@@ -835,7 +836,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-export-ply"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-asset-pointcloud",
  "c3d-core",
@@ -849,7 +850,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-export-usd"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-asset-material",
  "c3d-asset-mesh",
@@ -863,7 +864,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-import-collada"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-asset-mesh",
  "roxmltree",
@@ -872,7 +873,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-import-gltf"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-asset-material",
  "c3d-asset-mesh",
@@ -887,7 +888,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-import-gsplat"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-asset-gsplat",
  "c3d-core",
@@ -897,7 +898,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-import-ply"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-asset-pointcloud",
  "c3d-core",
@@ -906,7 +907,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-import-stl"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-asset-mesh",
  "thiserror 2.0.18",
@@ -914,7 +915,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-mesh-authoring"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-asset-material",
  "c3d-asset-mesh",
@@ -924,7 +925,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-project"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-asset-db",
  "c3d-asset-gsplat",
@@ -956,7 +957,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-rhi"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-core",
  "thiserror 2.0.18",
@@ -964,7 +965,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-rhi-wgpu"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "bytemuck",
  "c3d-rhi",
@@ -976,7 +977,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-robotics-core"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-core",
  "c3d-scene-doc",
@@ -989,7 +990,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-scene-doc"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-core",
  "c3d-scene-schema",
@@ -1000,7 +1001,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-scene-ops"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-core",
  "c3d-scene-doc",
@@ -1012,7 +1013,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-scene-schema"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-core",
  "glam",
@@ -1022,7 +1023,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-sync"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-collab-core",
  "c3d-core",
@@ -1036,7 +1037,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-urdf"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-core",
  "c3d-scene-schema",
@@ -1048,7 +1049,7 @@ dependencies = [
 
 [[package]]
 name = "c3d-viewport"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "bytemuck",
  "c3d-asset-db",
@@ -1309,7 +1310,7 @@ dependencies = [
 
 [[package]]
 name = "create3d-cli"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-core",
  "c3d-project",
@@ -1324,7 +1325,7 @@ dependencies = [
 
 [[package]]
 name = "create3d-desktop"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-ai-copilot",
  "c3d-asset-material",
@@ -1355,7 +1356,7 @@ dependencies = [
 
 [[package]]
 name = "create3d-ros2-bridge"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-core",
  "c3d-robotics-core",
@@ -1367,7 +1368,7 @@ dependencies = [
 
 [[package]]
 name = "create3d-sync-server"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-sync",
  "clap",
@@ -1980,7 +1981,7 @@ dependencies = [
 
 [[package]]
 name = "golden-scenes"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "c3d-core",
  "c3d-scene-doc",
@@ -3431,7 +3432,7 @@ checksum = "20675572f6f24e9e76ef639bc5552774ed45f1c30e2951e1e99c59888861c539"
 
 [[package]]
 name = "readme-preview"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "ab_glyph",
  "c3d-asset-db",
@@ -5483,7 +5484,7 @@ checksum = "3ae8337f8a065cfc972643663ea4279e04e7256de865aa66fe25cec5fb912d3f"
 
 [[package]]
 name = "xtask"
-version = "0.1.9-beta"
+version = "0.1.10-beta"
 dependencies = [
  "clap",
 ]

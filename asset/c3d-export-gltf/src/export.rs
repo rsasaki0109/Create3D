@@ -4,10 +4,11 @@ use std::path::Path;
 
 use c3d_asset_material::MaterialAssetData;
 use c3d_asset_mesh::MeshAssetData;
+use c3d_asset_pointcloud::{PointCloudAssetData, PointCloudChunkPayload};
 use c3d_core::math::{Quat, Vec3};
 use c3d_core::{AssetId, EntityId};
 use c3d_scene_doc::{Entity, SceneDoc};
-use c3d_scene_schema::Transform;
+use c3d_scene_schema::{PointCloudRef, Transform};
 use serde_json::{json, Value};
 
 /// Texture payload embedded into exported glTF buffers.
@@ -28,8 +29,8 @@ pub enum ExportError {
     /// JSON serialization failure.
     #[error("json error: {0}")]
     Json(#[from] serde_json::Error),
-    /// Scene had no exportable mesh content.
-    #[error("scene has no mesh entities to export")]
+    /// Scene had no exportable mesh or point cloud content.
+    #[error("scene has no mesh or point cloud entities to export")]
     EmptyScene,
     /// Asset lookup failure.
     #[error("asset error: {0}")]
@@ -41,20 +42,26 @@ pub enum ExportError {
 pub struct GltfExportReport {
     /// Number of glTF nodes written.
     pub node_count: usize,
-    /// Number of glTF meshes written.
+    /// Number of triangle mesh glTF meshes written.
     pub mesh_count: usize,
+    /// Number of point cloud entities exported as glTF POINTS meshes.
+    pub point_cloud_count: usize,
+    /// Total number of points written across all point cloud meshes.
+    pub point_count: u64,
     /// Number of embedded texture images written.
     pub texture_count: usize,
     /// Output file size in bytes.
     pub byte_length: u64,
 }
 
-/// Export a SceneDB document and mesh/material assets to a binary GLB file.
+/// Export a SceneDB document with mesh and point cloud assets to a binary GLB file.
 pub fn export_scene_glb(
     scene: &SceneDoc,
     mesh_loader: impl Fn(AssetId) -> Result<MeshAssetData, ExportError>,
     material_loader: impl Fn(AssetId) -> Result<MaterialAssetData, ExportError>,
     texture_loader: impl Fn(AssetId) -> Result<TextureExportData, ExportError>,
+    point_cloud_metadata_loader: impl Fn(AssetId) -> Result<PointCloudAssetData, ExportError>,
+    point_cloud_chunk_loader: impl Fn(AssetId) -> Result<PointCloudChunkPayload, ExportError>,
     output: impl AsRef<Path>,
 ) -> Result<GltfExportReport, ExportError> {
     let mut builder = GlbBuilder::new();
@@ -67,17 +74,21 @@ pub fn export_scene_glb(
             &mesh_loader,
             &material_loader,
             &texture_loader,
+            &point_cloud_metadata_loader,
+            &point_cloud_chunk_loader,
         )?;
         if let Some(index) = node_index {
             roots.push(index);
         }
     }
 
-    if builder.mesh_count == 0 {
+    if builder.mesh_count == 0 && builder.point_cloud_count == 0 {
         return Err(ExportError::EmptyScene);
     }
 
     let mesh_count = builder.mesh_count;
+    let point_cloud_count = builder.point_cloud_count;
+    let point_count = builder.point_count;
     let node_count = builder.node_count;
     let texture_count = builder.texture_count;
     let gltf = builder.finish(roots);
@@ -90,11 +101,14 @@ pub fn export_scene_glb(
     Ok(GltfExportReport {
         node_count,
         mesh_count,
+        point_cloud_count,
+        point_count,
         texture_count,
         byte_length,
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn export_entity_tree(
     entity_id: EntityId,
     scene: &SceneDoc,
@@ -102,6 +116,8 @@ fn export_entity_tree(
     mesh_loader: &impl Fn(AssetId) -> Result<MeshAssetData, ExportError>,
     material_loader: &impl Fn(AssetId) -> Result<MaterialAssetData, ExportError>,
     texture_loader: &impl Fn(AssetId) -> Result<TextureExportData, ExportError>,
+    point_cloud_metadata_loader: &impl Fn(AssetId) -> Result<PointCloudAssetData, ExportError>,
+    point_cloud_chunk_loader: &impl Fn(AssetId) -> Result<PointCloudChunkPayload, ExportError>,
 ) -> Result<Option<usize>, ExportError> {
     let Some(entity) = scene.get(entity_id) else {
         return Ok(None);
@@ -116,6 +132,8 @@ fn export_entity_tree(
             mesh_loader,
             material_loader,
             texture_loader,
+            point_cloud_metadata_loader,
+            point_cloud_chunk_loader,
         )? {
             child_indices.push(index);
         }
@@ -130,6 +148,12 @@ fn export_entity_tree(
             .transpose()?
             .unwrap_or_default();
         Some(builder.add_mesh(entity_label(entity), &mesh, &material, texture_loader)?)
+    } else if let Some(point_cloud_ref) = &entity.point_cloud_ref {
+        let metadata = point_cloud_metadata_loader(point_cloud_ref.asset_id)?;
+        match collect_entity_point_cloud(point_cloud_ref, &metadata, point_cloud_chunk_loader)? {
+            Some(points) => Some(builder.add_point_cloud(entity_label(entity), &points)?),
+            None => None,
+        }
     } else {
         None
     };
@@ -154,6 +178,60 @@ fn entity_label(entity: &Entity) -> String {
         .unwrap_or_else(|| entity.id.to_string())
 }
 
+struct CollectedPointCloud {
+    positions: Vec<[f32; 3]>,
+    colors: Vec<[u8; 3]>,
+    include_color: bool,
+}
+
+fn collect_entity_point_cloud(
+    point_cloud_ref: &PointCloudRef,
+    metadata: &PointCloudAssetData,
+    chunk_loader: &impl Fn(AssetId) -> Result<PointCloudChunkPayload, ExportError>,
+) -> Result<Option<CollectedPointCloud>, ExportError> {
+    let mut collected = CollectedPointCloud {
+        positions: Vec::new(),
+        colors: Vec::new(),
+        include_color: metadata.has_rgb || metadata.has_intensity,
+    };
+
+    for record in &metadata.chunks {
+        let mut payload = chunk_loader(record.blob_asset_id)?;
+        if let Some(crop) = point_cloud_ref.crop_filter {
+            payload = payload.crop(&crop);
+        }
+        if payload.point_count() == 0 {
+            continue;
+        }
+
+        for (index, position) in payload.positions.iter().enumerate() {
+            collected.positions.push(*position);
+            if metadata.has_rgb {
+                let color = payload
+                    .colors
+                    .get(index)
+                    .copied()
+                    .unwrap_or([255, 255, 255]);
+                collected.colors.push(color);
+            } else if metadata.has_intensity {
+                let value = payload.intensity.get(index).copied().unwrap_or(0.0);
+                let channel = intensity_to_u8(value);
+                collected.colors.push([channel, channel, channel]);
+            }
+        }
+    }
+
+    if collected.positions.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(collected))
+    }
+}
+
+fn intensity_to_u8(value: f32) -> u8 {
+    value.clamp(0.0, 1.0).mul_add(255.0, 0.0) as u8
+}
+
 struct GlbDocument {
     json: Value,
     bin: Vec<u8>,
@@ -171,6 +249,8 @@ struct GlbBuilder {
     texture_indices: HashMap<AssetId, usize>,
     nodes: Vec<Value>,
     mesh_count: usize,
+    point_cloud_count: usize,
+    point_count: u64,
     node_count: usize,
     texture_count: usize,
 }
@@ -189,6 +269,8 @@ impl GlbBuilder {
             texture_indices: HashMap::new(),
             nodes: Vec::new(),
             mesh_count: 0,
+            point_cloud_count: 0,
+            point_count: 0,
             node_count: 0,
             texture_count: 0,
         }
@@ -269,6 +351,64 @@ impl GlbBuilder {
         }));
         self.mesh_count += 1;
         Ok(mesh_index)
+    }
+
+    fn add_point_cloud(
+        &mut self,
+        name: String,
+        points: &CollectedPointCloud,
+    ) -> Result<usize, ExportError> {
+        let positions = align_offset(&mut self.bin);
+        for position in &points.positions {
+            for component in position {
+                self.bin.extend_from_slice(&component.to_le_bytes());
+            }
+        }
+        let positions_view = self.buffer_view(positions, points.positions.len() * 12);
+        let (min_pos, max_pos) = position_bounds(&points.positions);
+        let positions_accessor =
+            self.float_vec3_accessor(positions_view, points.positions.len(), min_pos, max_pos);
+
+        let mut attributes = json!({ "POSITION": positions_accessor });
+        if points.include_color && points.colors.len() == points.positions.len() {
+            let colors = align_offset(&mut self.bin);
+            for color in &points.colors {
+                self.bin.extend_from_slice(color);
+            }
+            let view = self.buffer_view(colors, points.colors.len() * 3);
+            let color_accessor = self.uchar_vec3_accessor(view, points.colors.len());
+            attributes
+                .as_object_mut()
+                .expect("attributes object")
+                .insert("COLOR_0".into(), json!(color_accessor));
+        }
+
+        let material_index = self.add_vertex_color_material()?;
+        let mesh_index = self.meshes.len();
+        self.meshes.push(json!({
+            "name": name,
+            "primitives": [{
+                "attributes": attributes,
+                "mode": 0,
+                "material": material_index
+            }]
+        }));
+        self.point_cloud_count += 1;
+        self.point_count += points.positions.len() as u64;
+        Ok(mesh_index)
+    }
+
+    fn add_vertex_color_material(&mut self) -> Result<usize, ExportError> {
+        let material_index = self.materials.len();
+        self.materials.push(json!({
+            "name": format!("point-cloud-material-{material_index}"),
+            "pbrMetallicRoughness": {
+                "baseColorFactor": [1.0, 1.0, 1.0, 1.0],
+                "metallicFactor": 0.0,
+                "roughnessFactor": 1.0
+            }
+        }));
+        Ok(material_index)
     }
 
     fn add_material(
@@ -405,6 +545,18 @@ impl GlbBuilder {
         index
     }
 
+    fn uchar_vec3_accessor(&mut self, view: usize, count: usize) -> usize {
+        let index = self.accessors.len();
+        self.accessors.push(json!({
+            "bufferView": view,
+            "componentType": 5121,
+            "count": count,
+            "type": "VEC3",
+            "normalized": true
+        }));
+        index
+    }
+
     fn indices_accessor(&mut self, view: usize, count: usize) -> usize {
         let index = self.accessors.len();
         self.accessors.push(json!({
@@ -535,11 +687,25 @@ mod tests {
                     .unwrap_or_else(|| "image/png".into());
                 Ok(TextureExportData { bytes, mime_type })
             },
+            |asset_id| {
+                project
+                    .point_cloud_asset(asset_id)
+                    .map_err(|err| ExportError::Asset(err.to_string()))
+            },
+            |asset_id| {
+                let bytes = project
+                    .assets()
+                    .read_blob(asset_id)
+                    .map_err(|err| ExportError::Asset(err.to_string()))?;
+                PointCloudChunkPayload::from_bytes(&bytes)
+                    .map_err(|err| ExportError::Asset(err.to_string()))
+            },
             &output,
         )
         .expect("export");
 
         assert!(report.mesh_count >= 2);
+        assert_eq!(report.point_cloud_count, 0);
         assert!(output.is_file());
 
         let imported = import_gltf_path(&output).expect("re-import");
@@ -612,14 +778,77 @@ mod tests {
                     Err(ExportError::Asset(format!("unexpected texture {asset}")))
                 }
             },
+            |_| Err(ExportError::Asset("unexpected point cloud metadata".into())),
+            |_| Err(ExportError::Asset("unexpected point cloud chunk".into())),
             &output,
         )
         .expect("export");
 
         assert_eq!(report.texture_count, 1);
+        assert_eq!(report.point_cloud_count, 0);
         let gltf = read_glb_json(&output).expect("read glb json");
         assert_eq!(gltf["textures"].as_array().map(Vec::len), Some(1));
         assert!(gltf["materials"][0]["pbrMetallicRoughness"]["baseColorTexture"].is_object());
+    }
+
+    #[test]
+    fn exports_point_cloud_scene_sample_as_points_primitive() {
+        let sample = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../samples/point-cloud-scene");
+        if !sample.join("manifest.c3d.toml").is_file() {
+            return;
+        }
+
+        let project = Project::open(&sample).expect("open sample");
+        let temp = tempfile::tempdir().expect("tempdir");
+        let output = temp.path().join("point-cloud-scene.glb");
+
+        let report = export_scene_glb(
+            project.scene(),
+            |asset_id| {
+                project
+                    .mesh_asset(asset_id)
+                    .map_err(|err| ExportError::Asset(err.to_string()))
+            },
+            |asset_id| {
+                project
+                    .material_asset(asset_id)
+                    .map_err(|err| ExportError::Asset(err.to_string()))
+            },
+            |asset_id| {
+                let data = project
+                    .texture_export_data(asset_id)
+                    .map_err(|err| ExportError::Asset(err.to_string()))?;
+                Ok(TextureExportData {
+                    bytes: data.bytes,
+                    mime_type: data.mime_type,
+                })
+            },
+            |asset_id| {
+                project
+                    .point_cloud_asset(asset_id)
+                    .map_err(|err| ExportError::Asset(err.to_string()))
+            },
+            |asset_id| {
+                let bytes = project
+                    .assets()
+                    .read_blob(asset_id)
+                    .map_err(|err| ExportError::Asset(err.to_string()))?;
+                PointCloudChunkPayload::from_bytes(&bytes)
+                    .map_err(|err| ExportError::Asset(err.to_string()))
+            },
+            &output,
+        )
+        .expect("export");
+
+        assert_eq!(report.mesh_count, 0);
+        assert!(report.point_cloud_count >= 1);
+        assert!(report.point_count > 0);
+
+        let gltf = read_glb_json(&output).expect("read glb json");
+        let primitive = &gltf["meshes"][0]["primitives"][0];
+        assert_eq!(primitive["mode"].as_u64(), Some(0));
+        assert!(primitive["attributes"]["POSITION"].is_number());
+        assert!(primitive["attributes"]["COLOR_0"].is_number());
     }
 
     fn read_glb_json(path: &Path) -> Result<Value, ExportError> {

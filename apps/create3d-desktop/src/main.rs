@@ -2016,8 +2016,10 @@ impl DesktopApp {
         match project.export_gltf(&path) {
             Ok(report) => {
                 self.project_status = format!(
-                    "Exported {} meshes to {} ({} bytes)",
+                    "Exported {} meshes, {} point cloud entities ({} points) to {} ({} bytes)",
                     report.mesh_count,
+                    report.point_cloud_count,
+                    report.point_count,
                     path.display(),
                     report.byte_length
                 );

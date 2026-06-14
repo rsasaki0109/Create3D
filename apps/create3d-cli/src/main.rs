@@ -276,8 +276,10 @@ fn export_gltf(project: PathBuf, output: PathBuf) -> Result<(), Box<dyn std::err
     let project = Project::open(&project)?;
     let report = project.export_gltf(&output)?;
     println!(
-        "Exported {} meshes ({} nodes, {} textures) to {} ({} bytes)",
+        "Exported {} meshes ({} point cloud entities, {} points, {} nodes, {} textures) to {} ({} bytes)",
         report.mesh_count,
+        report.point_cloud_count,
+        report.point_count,
         report.node_count,
         report.texture_count,
         output.display(),

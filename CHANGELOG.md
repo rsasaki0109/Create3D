@@ -1,3 +1,33 @@
+# Create3D Beta (0.1.10-beta)
+
+Point cloud GLB export v0: scene point cloud entities as glTF POINTS primitives.
+
+## Highlights
+
+- **Point cloud GLB export** — `c3d-export-gltf` writes `PointCloudRef` entities as glTF `POINTS` with `POSITION` + optional `COLOR_0`
+- **Entity transforms** — per-entity node transforms and crop filters applied before writing vertices
+- **CLI + Desktop** — existing `export-gltf` / **Export GLB** now include point cloud entities alongside meshes
+
+## Build
+
+```bash
+cargo run -p xtask -- check
+cargo run -p xtask -- package
+```
+
+## Tag
+
+```bash
+git tag -a v0.1.10-beta -m "Create3D Beta 0.1.10 release"
+git push origin v0.1.10-beta
+```
+
+## Known limitations
+
+See `Create3D/docs/known-limitations.md`.
+
+---
+
 # Create3D Beta (0.1.9-beta)
 
 URDF Collada (`.dae`) mesh import v0 for triangle Collada geometry referenced from URDF visuals.
