@@ -1,6 +1,6 @@
 # Known limitations (Beta)
 
-Create3D **0.1.4-beta** is a public prototype. Expect rough edges.
+Create3D **0.1.5-beta** is a public prototype. Expect rough edges.
 
 ## Editor
 
@@ -24,6 +24,7 @@ Create3D **0.1.4-beta** is a public prototype. Expect rough edges.
 
 - GLB export writes mesh hierarchy snapshots with base-color factors, embedded base-color textures, and UV coordinates when present; animations and point clouds are not exported yet.
 - USDA export writes mesh hierarchy snapshots with UsdPreviewSurface materials, optional sidecar base-color textures, and UV primvars; animations and point clouds are not exported yet.
+- PLY export writes ASCII point cloud snapshots from scene entities (world transforms and crop filters applied); binary PLY and Gaussian splats are not exported yet.
 
 ## AI
 

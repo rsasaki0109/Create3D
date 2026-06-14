@@ -1,3 +1,33 @@
+# Create3D Beta (0.1.5-beta)
+
+Point cloud PLY export: ASCII snapshots from scene point cloud entities.
+
+## Highlights
+
+- **PLY export** — new `c3d-export-ply` crate merges scene `PointCloudRef` entities into one ASCII PLY snapshot
+- **World/crop aware** — applies entity transforms and per-entity crop filters before writing vertices
+- **CLI + Desktop** — `export-ply` subcommand and **Export PLY** toolbar / command palette action
+
+## Build
+
+```bash
+cargo run -p xtask -- check
+cargo run -p xtask -- package
+```
+
+## Tag
+
+```bash
+git tag -a v0.1.5-beta -m "Create3D Beta 0.1.5 release"
+git push origin v0.1.5-beta
+```
+
+## Known limitations
+
+See `Create3D/docs/known-limitations.md`.
+
+---
+
 # Create3D Beta (0.1.4-beta)
 
 URDF external mesh import: resolve `package://` and relative paths; load STL and GLB/GLTF visuals.

@@ -16,6 +16,7 @@ mod template;
 
 pub use authoring::PrimitiveCreateReport;
 pub use c3d_export_gltf::GltfExportReport;
+pub use c3d_export_ply::PlyExportReport;
 pub use c3d_export_usd::UsdExportReport;
 pub use error::{ProjectError, ProjectResult};
 pub use gsplat::GaussianSplatImportReport;

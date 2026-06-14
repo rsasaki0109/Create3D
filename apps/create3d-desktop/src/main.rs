@@ -456,6 +456,10 @@ impl DesktopApp {
                 self.export_project_usd();
                 None
             }
+            "scene.export_ply" => {
+                self.export_project_ply();
+                None
+            }
             "project.save" => {
                 self.persist_project();
                 self.project_status = "Project saved".into();
@@ -1987,6 +1991,32 @@ impl DesktopApp {
         }
     }
 
+    fn export_project_ply(&mut self) {
+        let Some(project) = self.project.as_ref() else {
+            self.project_status = "No project loaded".into();
+            return;
+        };
+        let Some(path) = rfd::FileDialog::new()
+            .add_filter("PLY Point Cloud", &["ply"])
+            .set_file_name("snapshot.ply")
+            .save_file()
+        else {
+            return;
+        };
+        match project.export_ply(&path) {
+            Ok(report) => {
+                self.project_status = format!(
+                    "Exported {} points from {} entities to {} ({} bytes)",
+                    report.point_count,
+                    report.entity_count,
+                    path.display(),
+                    report.byte_length
+                );
+            }
+            Err(err) => self.project_status = format!("Export failed: {err}"),
+        }
+    }
+
     fn push_collab_transaction(&mut self, transaction: Transaction) {
         let Some(client) = self.sync_client.as_ref() else {
             return;
@@ -2480,6 +2510,9 @@ impl DesktopApp {
                 }
                 if ui.button("Export USD").clicked() {
                     self.export_project_usd();
+                }
+                if ui.button("Export PLY").clicked() {
+                    self.export_project_ply();
                 }
                 ui.separator();
                 if ui.button("Import GLB").clicked() {

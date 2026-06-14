@@ -59,6 +59,15 @@ enum Command {
         #[arg(long)]
         output: PathBuf,
     },
+    /// Export point cloud entities from a project to a PLY snapshot.
+    ExportPly {
+        /// Existing project directory.
+        #[arg(long)]
+        project: PathBuf,
+        /// Output PLY file path.
+        #[arg(long)]
+        output: PathBuf,
+    },
     /// Import a glTF/GLB file into a new or existing project.
     Import {
         /// glTF/GLB source file.
@@ -133,6 +142,7 @@ fn run(cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         } => bench_scene_replay(entities, iterations),
         Command::ExportGltf { project, output } => export_gltf(project, output),
         Command::ExportUsd { project, output } => export_usd(project, output),
+        Command::ExportPly { project, output } => export_ply(project, output),
         Command::Import {
             input,
             output,
@@ -267,6 +277,19 @@ fn export_usd(project: PathBuf, output: PathBuf) -> Result<(), Box<dyn std::erro
         report.mesh_count,
         report.prim_count,
         report.texture_count,
+        output.display(),
+        report.byte_length
+    );
+    Ok(())
+}
+
+fn export_ply(project: PathBuf, output: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    let project = Project::open(&project)?;
+    let report = project.export_ply(&output)?;
+    println!(
+        "Exported {} point cloud entities ({} points) to {} ({} bytes)",
+        report.entity_count,
+        report.point_count,
         output.display(),
         report.byte_length
     );

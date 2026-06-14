@@ -15,6 +15,7 @@ c3d-asset-pointcloud.workspace = true
 c3d-core = { workspace = true, features = ["serde"] }
 c3d-export-gltf.workspace = true
 c3d-export-usd.workspace = true
+c3d-export-ply.workspace = true
 c3d-import-gltf.workspace = true
 c3d-import-stl.workspace = true
 c3d-asset-gsplat.workspace = true

@@ -15,6 +15,7 @@ members = [
     "asset/c3d-import-stl",
     "asset/c3d-export-gltf",
     "asset/c3d-export-usd",
+    "asset/c3d-export-ply",
     "project/c3d-project",
     "scene/c3d-scene-schema",
     "scene/c3d-scene-doc",
@@ -41,7 +42,7 @@ members = [
 default-members = ["engine/c3d-core"]
 
 [workspace.package]
-version = "0.1.4-beta"
+version = "0.1.5-beta"
 edition = "2021"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
@@ -63,6 +64,7 @@ c3d-import-gltf = { path = "asset/c3d-import-gltf" }
 c3d-import-stl = { path = "asset/c3d-import-stl" }
 c3d-export-gltf = { path = "asset/c3d-export-gltf" }
 c3d-export-usd = { path = "asset/c3d-export-usd" }
+c3d-export-ply = { path = "asset/c3d-export-ply" }
 c3d-project = { path = "project/c3d-project" }
 c3d-scene-schema = { path = "scene/c3d-scene-schema" }
 c3d-scene-doc = { path = "scene/c3d-scene-doc" }
