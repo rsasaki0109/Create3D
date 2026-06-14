@@ -276,6 +276,8 @@ fn load_urdf_mesh_file(path: &Path) -> ProjectResult<MeshAssetData> {
         }
         "stl" => c3d_import_stl::import_stl_path(path)
             .map_err(|err| ProjectError::import_at_path("STL", path, err)),
+        "dae" => c3d_import_collada::import_collada_path(path)
+            .map_err(|err| ProjectError::import_at_path("Collada", path, err)),
         other => Err(ProjectError::UrdfImport(format!(
             "unsupported URDF mesh format `{other}` in `{}`",
             path.display()
@@ -320,6 +322,60 @@ mod tests {
         triangle.extend_from_slice(&0_u16.to_le_bytes());
         bytes.extend(triangle);
         fs::write(path, bytes).expect("write stl");
+    }
+
+    fn write_collada_triangle(path: &Path) {
+        let dae = r##"<?xml version="1.0" encoding="UTF-8"?>
+<COLLADA xmlns="http://www.collada.org/2005/11/COLLADASchema" version="1.4.1">
+  <library_geometries>
+    <geometry id="mesh">
+      <mesh>
+        <source id="positions">
+          <float_array id="positions-array" count="9">0 0 0 1 0 0 0 1 0</float_array>
+          <technique_common>
+            <accessor source="#positions-array" count="3" stride="3"/>
+          </technique_common>
+        </source>
+        <vertices id="vertices">
+          <input semantic="POSITION" source="#positions"/>
+        </vertices>
+        <triangles count="1">
+          <input semantic="VERTEX" source="#vertices" offset="0"/>
+          <p>0 1 2</p>
+        </triangles>
+      </mesh>
+    </geometry>
+  </library_geometries>
+</COLLADA>"##;
+        fs::write(path, dae).expect("write dae");
+    }
+
+    #[test]
+    fn urdf_import_loads_external_collada_mesh_reference() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let mesh_path = temp.path().join("link.dae");
+        write_collada_triangle(&mesh_path);
+
+        let urdf = r#"<?xml version="1.0"?>
+<robot name="dae_robot">
+  <link name="base_link">
+    <visual name="mesh_visual">
+      <geometry>
+        <mesh filename="link.dae"/>
+      </geometry>
+    </visual>
+  </link>
+</robot>"#;
+        let urdf_path = temp.path().join("robot.urdf");
+        fs::write(&urdf_path, urdf).expect("write urdf");
+
+        let mut project = Project::create(temp.path(), "robot").expect("project");
+        let mut ids = UlidGenerator::default();
+        let report = project
+            .import_urdf(&urdf_path, &mut ids)
+            .expect("import urdf with collada mesh");
+        assert_eq!(report.robot_name, "dae_robot");
+        assert_eq!(report.link_entities.len(), 1);
     }
 
     #[test]

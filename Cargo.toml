@@ -13,6 +13,7 @@ members = [
     "asset/c3d-mesh-authoring",
     "asset/c3d-import-gltf",
     "asset/c3d-import-stl",
+    "asset/c3d-import-collada",
     "asset/c3d-export-gltf",
     "asset/c3d-export-usd",
     "asset/c3d-export-ply",
@@ -43,7 +44,7 @@ members = [
 default-members = ["engine/c3d-core"]
 
 [workspace.package]
-version = "0.1.8-beta"
+version = "0.1.9-beta"
 edition = "2021"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
@@ -63,6 +64,7 @@ c3d-import-gsplat = { path = "asset/c3d-import-gsplat" }
 c3d-mesh-authoring = { path = "asset/c3d-mesh-authoring" }
 c3d-import-gltf = { path = "asset/c3d-import-gltf" }
 c3d-import-stl = { path = "asset/c3d-import-stl" }
+c3d-import-collada = { path = "asset/c3d-import-collada" }
 c3d-export-gltf = { path = "asset/c3d-export-gltf" }
 c3d-export-usd = { path = "asset/c3d-export-usd" }
 c3d-export-ply = { path = "asset/c3d-export-ply" }
@@ -103,6 +105,7 @@ blake3 = "1"
 gltf = { version = "1", features = ["import", "names"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 toml = "0.8"
+roxmltree = "0.20"
 rfd = "0.15"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 

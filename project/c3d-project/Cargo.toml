@@ -19,6 +19,7 @@ c3d-export-ply.workspace = true
 c3d-export-gsplat.workspace = true
 c3d-import-gltf.workspace = true
 c3d-import-stl.workspace = true
+c3d-import-collada.workspace = true
 c3d-asset-gsplat.workspace = true
 c3d-import-ply.workspace = true
 c3d-import-gsplat.workspace = true

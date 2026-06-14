@@ -1,6 +1,6 @@
 # Known limitations (Beta)
 
-Create3D **0.1.8-beta** is a public prototype. Expect rough edges.
+Create3D **0.1.9-beta** is a public prototype. Expect rough edges.
 
 ## Editor
 
@@ -18,7 +18,7 @@ Create3D **0.1.8-beta** is a public prototype. Expect rough edges.
 
 - glTF: supported paths only; exotic extensions may fail with path-qualified errors.
 - PLY / 3DGS: point cloud PLY import supports ASCII and binary little-endian (`float` + `uchar` properties); 3DGS import remains ASCII-oriented.
-- URDF: primitive visuals and external mesh references (`.stl`, `.glb`, `.gltf`); `package://` URIs resolve relative to the URDF directory. Collada (`.dae`) and rospack lookup are not supported yet.
+- URDF: primitive visuals and external mesh references (`.stl`, `.glb`, `.gltf`, `.dae`); `package://` URIs resolve relative to the URDF directory. rospack lookup is not supported yet.
 
 ## Export
 

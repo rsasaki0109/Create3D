@@ -1,3 +1,33 @@
+# Create3D Beta (0.1.9-beta)
+
+URDF Collada (`.dae`) mesh import v0 for triangle Collada geometry referenced from URDF visuals.
+
+## Highlights
+
+- **Collada import** — new `c3d-import-collada` crate parses triangle `<triangles>` and triangle-only `<polylist>` geometry
+- **URDF wiring** — `load_urdf_mesh_file()` accepts `.dae` alongside `.stl`, `.glb`, and `.gltf`
+- **Import tests** — project importer covers relative `.dae` references next to the URDF file
+
+## Build
+
+```bash
+cargo run -p xtask -- check
+cargo run -p xtask -- package
+```
+
+## Tag
+
+```bash
+git tag -a v0.1.9-beta -m "Create3D Beta 0.1.9 release"
+git push origin v0.1.9-beta
+```
+
+## Known limitations
+
+See `Create3D/docs/known-limitations.md`.
+
+---
+
 # Create3D Beta (0.1.8-beta)
 
 Binary PLY import/export v0: round-trip point cloud snapshots in binary little-endian format.
